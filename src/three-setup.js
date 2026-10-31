@@ -5,6 +5,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
-window.THREE = { ...core, RoundedBoxGeometry, EffectComposer, RenderPass, ShaderPass, UnrealBloomPass };
+window.THREE = { ...core, RoundedBoxGeometry, EffectComposer, RenderPass, ShaderPass, UnrealBloomPass, RoomEnvironment };
