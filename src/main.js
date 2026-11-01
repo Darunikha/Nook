@@ -313,7 +313,77 @@ import './three-setup.js';
     var shape = new THREE.Shape(); shape.moveTo(-WR, 0); shape.lineTo(WR, 0); shape.lineTo(WR, WS); shape.absarc(0, WS, WR, 0, Math.PI, false); shape.lineTo(-WR, 0);
     var sg = new THREE.ShapeGeometry(shape, 32), uvA = sg.attributes.uv, posA = sg.attributes.position;
     for (var ui = 0; ui < uvA.count; ui++) uvA.setXY(ui, (posA.getX(ui) + WR) / WW, posA.getY(ui) / (WS + WR));
-    var skyMat = new THREE.MeshBasicMaterial({ map: skyTex, fog: false, color: new THREE.Color(1.3, 1.3, 1.3) });
+    // The sky is drawn through a "wet glass" shader: water beads bend the view like tiny lenses, drops slide down and leave
+    // clear trails, and the rest of the pane is lightly fogged. With no rain it is just the sky.
+    var skyMat = new THREE.ShaderMaterial({
+      uniforms: { map: { value: skyTex }, uTime: { value: 0 }, uRain: { value: 0 }, uBright: { value: 1.3 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: [
+        'uniform sampler2D map; uniform float uTime; uniform float uRain; uniform float uBright; varying vec2 vUv;',
+        'const float ASP = 0.6667;',
+        'float h11(float p){ p = fract(p * .1031); p *= p + 33.33; p *= p + p; return fract(p); }',
+        'float h21(vec2 p){ vec3 q = fract(vec3(p.xyx) * .1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }',
+        // beads of water stuck to the glass: xy = refraction, z = clear mask, w = highlight, rim darkening in a second out value
+        'vec4 beads(vec2 p, float scale, float density, float seed, out float rim){',
+        '  vec2 g = p * scale; vec2 id = floor(g) + seed; vec2 f = fract(g) - .5;',
+        '  vec2 c = (vec2(h21(id), h21(id + 17.3)) - .5) * .3;',
+        '  float rad = mix(.12, .34, pow(h21(id + 9.1), 1.6));',
+        '  float present = step(h21(id + 3.7), density);',
+        '  vec2 q = (f - c) / rad; float l = length(q);',
+        '  float m = smoothstep(1., .9, l) * present;',
+        '  vec3 n = normalize(vec3(q, sqrt(max(0., 1. - l * l)) + .12));',
+        '  float spec = pow(max(dot(n, normalize(vec3(-.5, .65, .6))), 0.), 24.) * m;',
+        '  rim = smoothstep(.55, .98, l) * m;',
+        '  return vec4(-q * m * (.9 - .3 * l), m, spec);',
+        '}',
+        // drops sliding down in strips, each leaving a wet trail above it
+        'vec4 runs(vec2 uv, float t, float rain, out float trailClear){',
+        '  float N = 8.; float col = floor(uv.x * N); vec4 acc = vec4(0.); trailClear = 0.;',
+        '  vec2 P = uv * vec2(ASP, 1.);',
+        '  for (int k = -1; k <= 1; k++) {',
+        '    float ci = col + float(k);',
+        '    float act = step(h11(ci * 7.13 + 1.), rain * 1.05);',
+        '    float sp = .035 + .05 * h11(ci * 5.7); float cyc = t * sp + h11(ci * 9.3); float seed = floor(cyc); float fy = fract(cyc);',
+        '    float st = fy * 5.; float yv = 1.02 - (floor(st) + smoothstep(0., .35, fract(st))) / 5.;',
+        '    float x0 = (ci + .15 + .7 * h11(ci * 3.1 + seed * 1.7)) / N * ASP;',
+        '    float xw = x0 + .0035 * sin(yv * 47. + ci * 3.) * (1. - yv * .3);',
+        '    float rr = .0115 + .006 * h11(ci * 2.3 + seed);',
+        '    vec2 d = (P - vec2(xw, yv)) / vec2(rr * .85, rr * 1.25); float l = length(d);',
+        '    float m = smoothstep(1., .88, l) * act;',
+        '    acc.xy += -d * m * (.9 - .3 * l); acc.z = max(acc.z, m);',
+        '    vec3 n = normalize(vec3(d, sqrt(max(0., 1. - l * l)) + .12));',
+        '    acc.w += pow(max(dot(n, normalize(vec3(-.5, .65, .6))), 0.), 24.) * m;',
+        '    float above = P.y - yv;',
+        '    float tw = .0042 + .0016 * h11(ci + seed);',
+        '    float tr = smoothstep(tw, tw * .35, abs(P.x - xw - .0015 * sin(P.y * 70. + ci))) * step(0., above) * step(P.y, 1.02) * exp(-above * 1.5) * act;',
+        '    trailClear = max(trailClear, tr);',
+        '  }',
+        '  return acc;',
+        '}',
+        'void main(){',
+        '  vec2 uv = vUv; vec2 P = uv * vec2(ASP, 1.);',
+        '  float rain = uRain; vec3 col;',
+        '  if (rain < .001) { col = texture2D(map, uv).rgb; }',
+        '  else {',
+        '    float rim1, rim2;',
+        '    vec4 b1 = beads(P, 17., rain * .55, 0., rim1);',
+        '    vec4 b2 = beads(P + .013, 38., rain * .85, 31., rim2);',
+        '    float tc; vec4 r = runs(uv, uTime, rain, tc);',
+        '    vec2 disp = (b1.xy * .012 + b2.xy * .0065 + r.xy * .0085) * vec2(1. / ASP, 1.);',
+        '    vec3 sharp = texture2D(map, clamp(uv + disp, .001, .999)).rgb;',
+        '    float b = .015 * rain; vec3 blur = texture2D(map, uv).rgb;',
+        '    for (int i = 0; i < 8; i++) { float a = float(i) * .7854; vec2 o = vec2(cos(a) / ASP * .6, sin(a)) * b * (i % 2 == 0 ? 1. : .55); blur += texture2D(map, clamp(uv + o, .001, .999)).rgb; }',
+        '    blur /= 9.;',
+        '    float clear = clamp(max(max(b1.z, b2.z * .9), max(r.z, tc * .85)), 0., 1.);',
+        '    vec3 mist = mix(blur, vec3(.30, .35, .52), .14 * rain);',
+        '    col = mix(mist * mix(1., .8, rain), sharp * 1.08, clear);',
+        '    col *= 1. - (rim1 + rim2 * .8) * .5;',
+        '    col += vec3(1., .97, .9) * (b1.w + b2.w * .8 + r.w) * .9;',
+        '  }',
+        '  gl_FragColor = vec4(col * uBright, 1.);',
+        '}'
+      ].join('\n')
+    });
     var skyM = new THREE.Mesh(sg, skyMat); skyM.position.set(0, WB, Z0 + .02); add(skyM, null, false);
     var frameM = mat('#3E2719', { roughness: .5 });
     capsule(.08, WS, frameM, -WR - .05, WB + WS / 2, Z0 + .08).castShadow = false; capsule(.08, WS, frameM, WR + .05, WB + WS / 2, Z0 + .08).castShadow = false;
@@ -326,8 +396,7 @@ import './three-setup.js';
     box(.6, .45, .2, mint, .95, WB + .3, Z0 + .2, null, true, .12).rotation.z = -.08;
     box(.44, .32, .18, butter, -.38, WB + .25, Z0 + .24, null, true, .1).rotation.z = -.15;
     ball(.18, lilac, .35, WB + .26, Z0 + .3, 1, .8, .7);                 // round pouf pillow
-    var rainMat = new THREE.MeshBasicMaterial({ color: '#E8F0FF', transparent: true, opacity: 0, fog: false }), rainDrops = [];
-    for (var rd = 0; rd < 70; rd++) { var drop = new THREE.Mesh(new THREE.BoxGeometry(.01, .2, .01), rainMat); drop.position.set(-WR + Math.random() * WW, WB + Math.random() * WS, Z0 + .045); drop.userData.v = 2.4 + Math.random() * 1.6; drop.rotation.z = .12; scene.add(drop); rainDrops.push(drop); }
+    var rainMat = { opacity: 0 }, rainDrops = [];
     for (var ka = 0; ka <= 16; ka++) { var aa = Math.PI * ka / 16, bx = Math.cos(aa) * (WR + .24), by = WB + WS + Math.sin(aa) * (WR + .24); var bb = new THREE.Mesh(new THREE.SphereGeometry(.034, 10, 8), fairyMats[ka % 4]); bb.position.set(bx, by, Z0 + .12); scene.add(bb); fairyGlows.push(glow(fairyCols[ka % 4], .26, bx, by, Z0 + .14, .4)); }
     tag = null;
     var patchTex = canvasTex(256, 448, function (x, w, h) { x.save(); x.beginPath(); x.moveTo(14, h - 10); x.lineTo(14, h * .3); x.arc(w / 2, h * .3, w / 2 - 14, Math.PI, 0); x.lineTo(w - 14, h - 10); x.closePath(); x.clip(); x.fillStyle = '#fff'; x.shadowColor = '#fff'; x.shadowBlur = 34; for (var cx = 0; cx < 4; cx++) for (var cy = 0; cy < 4; cy++) x.fillRect(20 + cx * 57, 26 + cy * 104, 48, 92); x.restore(); }, true);
@@ -721,7 +790,7 @@ import './three-setup.js';
       hemi.color.copy(cur.sky); hemi.groundColor.copy(cur.ground); hemi.intensity = cur.hemi * dim;
       sun.color.copy(cur.sun); sun.intensity = cur.sunI * dim; sun.position.copy(cur.pos);
       scene.fog.color.copy(cur.fog); scene.background.copy(cur.fog);
-      skyMat.color.setScalar(cur.skyB);
+      skyMat.uniforms.uBright.value = cur.skyB; skyMat.uniforms.uTime.value = reduce ? 0 : t; skyMat.uniforms.uRain.value += (rainLevel - skyMat.uniforms.uRain.value) * (1 - Math.exp(-dt * 2.5));
       ceil.material.color.setScalar(.3 + cur.hemi * .75);
       var lampI = Math.max(cur.lamp, focusing ? 1.6 : 0) * (focusing ? 1.2 : 1);
       lampLight.intensity = lampI * .45;
