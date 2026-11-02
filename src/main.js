@@ -1419,23 +1419,24 @@ import './three-setup.js';
       b.onclick = function () { api.onOpen(id); }; spotsEl.appendChild(b); h.el = b;
     });
 
-    var move = null, offR = 0, offB = 0, wantR = 0, wantB = 0, focused = null;
+    var move = null, offR = 0, offB = 0, offL = 0, wantR = 0, wantB = 0, wantL = 0, focused = null;
     function angTo(from, to) { var d = new THREE.Vector3().subVectors(to, from); return { yaw: Math.atan2(-d.x, -d.z), pitch: Math.atan2(d.y, Math.hypot(d.x, d.z)) }; }
     function nearAngle(a, ref) { while (a - ref > Math.PI) a -= Math.PI * 2; while (a - ref < -Math.PI) a += Math.PI * 2; return a; }
     function goTo(pos, yaw, pitch) { move = { p0: camera.position.clone(), p1: pos, y0: look.yaw, y1: nearAngle(yaw, look.yaw), q0: look.pitch, q1: pitch, start: performance.now(), dur: 1500 }; }
     function focus(id, cardW, cardH, mobile) {
+      var h = HOT[id]; if (!h || !h.from) return;
       if (!focused) homeLook = { yaw: look.yaw, pitch: look.pitch };
-      focused = id; var h = HOT[id];
-      wantR = mobile ? 0 : cardW + 40; wantB = mobile ? cardH + 24 : 0;
+      focused = id;
+      wantR = mobile ? 0 : cardW + 40; wantB = mobile ? cardH + 24 : 0; var navEl = document.getElementById('nav'); wantL = mobile || !navEl ? 0 : Math.round(navEl.getBoundingClientRect().right + 8);
       fovT = baseFov;
       var w = stage.clientWidth, ht = stage.clientHeight, fh = ht + wantB, tanV = Math.tan(baseFov * Math.PI / 360);
-      var dist = Math.max(h.w / (2 * tanV * (w - wantR) / fh), h.h / (2 * tanV * (ht - wantB) / fh));
+      var dist = Math.max(h.w / (2 * tanV * (w - wantR - wantL) / fh), h.h / (2 * tanV * (ht - wantB) / fh));
       var tgt = new THREE.Vector3().fromArray(h.target);
       var pos = new THREE.Vector3().fromArray(h.from).sub(tgt).setLength(dist).add(tgt);
       pos.x = Math.max(-X + .7, Math.min(X - .7, pos.x)); pos.z = Math.max(Z0 + .7, Math.min(Z1 - .5, pos.z)); pos.y = Math.max(1.0, Math.min(2.6, pos.y));
       var a = angTo(pos, tgt); goTo(pos, a.yaw, a.pitch);
     }
-    function home() { focused = null; wantR = 0; wantB = 0; fovT = baseFov; var l = homeLook || { yaw: 0, pitch: -.04 }; goTo(SEAT.clone(), l.yaw, l.pitch); }
+    function home() { focused = null; wantR = 0; wantB = 0; wantL = 0; fovT = baseFov; var l = homeLook || { yaw: 0, pitch: -.04 }; goTo(SEAT.clone(), l.yaw, l.pitch); }
 
     var canvas = renderer.domElement, ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), hovered = null, hotHover = null, needsPick = false;
     var pointers = new Map(), downAt = null, pinch = 0;
@@ -1476,7 +1477,7 @@ import './three-setup.js';
       if (k) { e.preventDefault(); look.ty += k[0]; look.tp = Math.max(-1, Math.min(1, look.tp + k[1])); }
     });
 
-    function applyView() { var w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return; var fw = w + offR, fh = h + offB; camera.aspect = fw / fh; camera.setViewOffset(fw, fh, offR, offB, w, h); camera.updateProjectionMatrix(); }
+    function applyView() { var w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return; var fw = w + offR + offL, fh = h + offB; camera.aspect = fw / fh; camera.setViewOffset(fw, fh, offR, offB, w, h); camera.updateProjectionMatrix(); }
     function resize() {
       var w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
       renderer.setSize(w, h, false);
@@ -1496,7 +1497,7 @@ import './three-setup.js';
       requestAnimationFrame(loop);
       var dt = Math.min(clk.getDelta(), .05), t = clk.elapsedTime, k = 1 - Math.exp(-dt * 2.5);
       var ko = 1 - Math.exp(-dt * 6);
-      if (Math.abs(offR - wantR) > .5 || Math.abs(offB - wantB) > .5) { offR += (wantR - offR) * ko; offB += (wantB - offB) * ko; applyView(); }
+      if (Math.abs(offR - wantR) > .5 || Math.abs(offB - wantB) > .5 || Math.abs(offL - wantL) > .5) { offR += (wantR - offR) * ko; offB += (wantB - offB) * ko; offL += (wantL - offL) * ko; applyView(); }
       if (move) {
         var u = reduce ? 1 : Math.min(1, (performance.now() - move.start) / move.dur), e = ease(u);
         camera.position.lerpVectors(move.p0, move.p1, e);
@@ -1579,6 +1580,8 @@ import './three-setup.js';
       setDeskClock: function (time, color, running, frac, label, sub) { frac = frac == null ? 1 : frac; if (deskClock.time === time && deskClock.color === color && deskClock.running === running && deskClock.frac === frac && deskClock.label === label && deskClock.sub === sub) return; deskClock.time = time; deskClock.color = color; deskClock.running = running; deskClock.frac = frac; deskClock.label = label || 'FOCUS'; deskClock.sub = sub || ''; redraw(dcTex); },
       toggleLamp: function () { lampOnB = !lampOnB; return lampOnB; }, toggleCandle: function () { candleOnB = !candleOnB; return candleOnB; },
       setNotebook: function (title, text, date, page, total) { NB.title = title || ''; NB.empty = !(title || text); NB.lines = (title ? [title] : []).concat(text ? nbWrap(text, 512 - 100) : []); NB.date = date || ''; NB.page = page || 1; NB.total = total || 1; redrawNB(); },
+      setReduce: function (v) { reduce = !!v; },
+      setQuality: function (q) { var d = window.devicePixelRatio || 1; DPR = q === 'light' ? 1 : q === 'balanced' ? Math.min(d, 1.25) : Math.min(d, 1.75); renderer.setPixelRatio(DPR); resize(); },
       pet: function () { petT = 1.6; catHop = 1; }, hello: function () { catHop = 1; }
     };
     return api;
@@ -1586,37 +1589,53 @@ import './three-setup.js';
 
   /* ---------- cards ---------- */
   var CARDS = {
-    desk: ['Pomodoro timer', 'Settle in'], notebook: ['Notebook', 'Write something down'], reading: ['Reading list', 'Currently reading'], music: ['Gramophone', 'Ambience'], chair: ['Fireside chair', 'Currently reading'],
+    desk: ['Pomodoro timer', 'Settle in'], notebook: ['My Notes', 'Write something down'], goals: ['Study Goals', 'Today\u2019s intentions'], mood: ['Mood Tracker', 'How are you feeling?'], settings: ['Settings', 'Make it yours'],
+    reading: ['Reading list', 'Currently reading'], music: ['Gramophone', 'Ambience'], chair: ['Fireside chair', 'Currently reading'],
     library: ['The stacks', 'Books you have read'], shelf: ['Your study shelf', 'Your study sessions'], board: ['Card catalog', 'October'],
     window: ['Arched window', 'Time of day'], cat: ['Mochi, the library cat', 'Hello, Mochi']
   };
-  var card = $('#card'), openId = null, mobileMQ = window.matchMedia('(max-width: 640px)');
-  var SECT = { reading: 'chair' };
-  function openCard(id) {
+  var FOCUS_IDS = { desk: 1, notebook: 1, reading: 1, music: 1, chair: 1, library: 1, shelf: 1, board: 1, window: 1, cat: 1 };      // pages that lean the camera over to an object
+  var SECT = { reading: 'chair' }, NAVKEY = { chair: 'reading' };
+  var SLUG = { notebook: 'notes', desk: 'timer', goals: 'goals', mood: 'mood', settings: 'settings', music: 'ambience', reading: 'reading', chair: 'chair', library: 'stacks', shelf: 'shelf', board: 'catalog', window: 'window', cat: 'mochi' }, BYSLUG = {};
+  Object.keys(SLUG).forEach(function (k) { BYSLUG[SLUG[k]] = k; });
+  var card = $('#card'), openId = null, mobileMQ = window.matchMedia('(max-width: 720px)');
+  function setNav(id) { document.querySelectorAll('[data-go]').forEach(function (b) { if ((NAVKEY[id] || id || 'room') === b.dataset.go) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); }
+  function setHash(id, replace) { var h = '#/' + (id ? SLUG[id] : 'room'); if (location.hash === h) return; try { (replace ? history.replaceState : history.pushState).call(history, null, '', h); } catch (e) { location.hash = h; } }
+  function openCard(id, fromRoute) {
     if (id === 'lamp') { if (room) { var lo = room.toggleLamp(); toast(lo ? 'Desk lamp on' : 'Desk lamp off'); } return; }
     if (id === 'candle') { if (room) { var co = room.toggleCandle(); toast(co ? 'Candle lit' : 'Candle blown out'); } return; }
     if (id === 'mug') { teaBreak(); id = 'desk'; }
     if (!CARDS[id]) return;
-    openId = id;
+    openId = id; card.dataset.page = id;
     $('#cardKicker').textContent = CARDS[id][0]; $('#cardTitle').textContent = CARDS[id][1];
     document.querySelectorAll('.sect').forEach(function (s) { s.hidden = s.dataset.sect !== (SECT[id] || id); });
-    if (id === 'notebook') setTimeout(function () { var t = $('#nbText'); if (t && openId === 'notebook') t.focus(); }, 520);
-    card.hidden = false;
+    if (id === 'notebook') setTimeout(function () { var t = $('#nbText'); if (t && openId === 'notebook' && !mobileMQ.matches) t.focus(); }, 520);
+    card.hidden = false; card.scrollTop = 0;
     requestAnimationFrame(function () { card.classList.add('open'); });
     $('#spots').classList.add('away'); $('#hint').style.opacity = 0;
-    if (room) room.focus(id, card.offsetWidth, card.offsetHeight, mobileMQ.matches);
+    $('#nav').classList.remove('sheet-open'); $('#navMore').setAttribute('aria-expanded', 'false');
+    setNav(id); if (!fromRoute) setHash(id);
+    if (room) { if (FOCUS_IDS[id]) room.focus(id, card.offsetWidth, card.offsetHeight + (mobileMQ.matches ? 76 : 0), mobileMQ.matches); else room.home(); }
     if (id === 'cat' && room) room.hello();
   }
-  function closeCard() {
+  function closeCard(fromRoute) {
     if (!openId) return;
     openId = null; card.classList.remove('open');
     setTimeout(function () { if (!openId) card.hidden = true; }, 350);
     $('#spots').classList.remove('away'); $('#hint').style.opacity = 1;
+    setNav(null); if (fromRoute !== true) setHash(null, true);
     if (room) room.home();
   }
-  $('#cardClose').onclick = closeCard;
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeCard(); });
+  $('#cardClose').onclick = function () { closeCard(); };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { $('#nav').classList.remove('sheet-open'); closeCard(); } });
   if (room) { room.onOpen = openCard; room.onClose = closeCard; room.onBook = function (b) { showBook(b); if (openId !== 'shelf') openCard('shelf'); }; }
+  setNav(null);
+
+  /* ---------- the library menu ---------- */
+  document.querySelectorAll('[data-go]').forEach(function (b) { b.addEventListener('click', function () { var g = b.dataset.go; $('#nav').classList.remove('sheet-open'); $('#navMore').setAttribute('aria-expanded', 'false'); if (g === 'room') closeCard(); else openCard(g); }); });
+  $('#navMore').onclick = function () { var o = $('#nav').classList.toggle('sheet-open'); this.setAttribute('aria-expanded', String(o)); };
+  document.addEventListener('pointerdown', function (e) { if (!e.target.closest('#nav')) { $('#nav').classList.remove('sheet-open'); $('#navMore').setAttribute('aria-expanded', 'false'); } });
+  $('#navCollapse').onclick = function () { S.nav = !S.nav; applySettings(); saveSettings(); };
 
   /* ---------- time of day ---------- */
   var todMode = 'auto', lastTod = null;
@@ -1628,10 +1647,11 @@ import './three-setup.js';
     lastTod = tod;
     var label = { morning: 'good morning', day: 'a bright afternoon', golden: 'golden hour', night: 'a quiet night' }[tod];
     var clockStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    $('#clockText').textContent = clockStr + ' · ' + label;
+    $('#clockText').textContent = clockStr + ' · ' + label; $('#navClock').textContent = clockStr + ' · ' + label;
     $('#todNow').textContent = todMode === 'auto' ? 'Live follows your clock. It is ' + clockStr + ', so the room shows ' + label + '.' : 'Showing ' + label + '. Pick Live to follow your clock again.';
   }
-  document.querySelectorAll('.tods .chip').forEach(function (b) { b.onclick = function () { todMode = b.dataset.tod; document.querySelectorAll('.tods .chip').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); applyTod(); }; });
+  function setTodMode(m, silent) { todMode = m; document.querySelectorAll('.tods .chip').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.tod === m); }); applyTod(); if (!silent) saveSettings(); }
+  document.querySelectorAll('.tods .chip').forEach(function (b) { b.onclick = function () { setTodMode(b.dataset.tod); }; });
   applyTod(); setInterval(applyTod, 30000);
 
   /* ---------- focus timer ---------- */
@@ -1646,7 +1666,7 @@ import './three-setup.js';
   function fmt(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
   function render() {
     var started = remaining < minutes * 60;
-    $('#time').textContent = fmt(remaining); $('#prog').style.width = (100 * (1 - remaining / (minutes * 60))) + '%';
+    $('#time').textContent = fmt(remaining); $('#dialArc').style.strokeDashoffset = String(326.73 * (1 - remaining / (minutes * 60)));
     $('#startBtn').textContent = running ? 'Pause' : started ? 'Resume' : (minutes === 5 ? 'Start break' : 'Start focus');
     $('#timeSub').textContent = running ? (minutes === 5 ? 'stretch, sip some tea' : 'Mochi is keeping you company') : started ? 'paused' : 'ready when you are';
     $('#timerPill').hidden = !running && !started;
@@ -1674,11 +1694,11 @@ import './three-setup.js';
   render();
 
   /* ---------- record player: ambience ---------- */
-  var CH = [{ id: 'rain', icon: '🌧️', name: 'Rain', v: 50 }, { id: 'fire', icon: '🔥', name: 'Crackling fire', v: 30 }, { id: 'wind', icon: '🍃', name: 'Wind', v: 0 }, { id: 'clock', icon: '🕰️', name: 'Clock ticking', v: 0 }];
+  var CH = [{ id: 'rain', icon: 'i-rain', name: 'Rain', v: 50 }, { id: 'fire', icon: 'i-fire', name: 'Crackling fire', v: 30 }, { id: 'wind', icon: 'i-leaf', name: 'Wind', v: 0 }, { id: 'clock', icon: 'i-clock', name: 'Clock ticking', v: 0 }];
   var ac = null, gains = {}, playing = false;
   CH.forEach(function (c) {
     var row = document.createElement('div'); row.className = 'ch';
-    row.innerHTML = '<span class="ic" aria-hidden="true">' + c.icon + '</span><div><label for="v-' + c.id + '">' + c.name + '</label><input type="range" id="v-' + c.id + '" min="0" max="100" value="' + c.v + '"></div><output id="o-' + c.id + '">' + c.v + '</output>';
+    row.innerHTML = '<span class="ic-wrap" aria-hidden="true"><svg class="ic"><use href="#' + c.icon + '"/></svg></span><div><label for="v-' + c.id + '">' + c.name + '</label><input type="range" id="v-' + c.id + '" min="0" max="100" value="' + c.v + '"></div><output id="o-' + c.id + '">' + c.v + '</output>';
     $('#mix').appendChild(row);
     row.querySelector('input').oninput = function (e) { c.v = +e.target.value; $('#o-' + c.id).textContent = c.v; setLevel(c); };
   });
@@ -1771,4 +1791,127 @@ import './three-setup.js';
   };
   renderNb();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { renderNb(); render(); });
+  /* ---------- saved in this browser ---------- */
+  var store = { get: function (k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }, set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } } };
+  function dayKey(d) { d = d || new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+
+  /* ---------- study goals ---------- */
+  var GKEY = 'nook.goals.v1', goalsData = store.get(GKEY, { days: {} }), SUGGEST = ['Read a chapter', 'Revise my notes', 'One focus session', 'Tidy my desk'], gAllDone = false;
+  if (!goalsData || !goalsData.days) goalsData = { days: {} };
+  Object.keys(goalsData.days).forEach(function (k) { var age = (Date.now() - new Date(k + 'T12:00:00').getTime()) / 864e5; if (age > 120) delete goalsData.days[k]; });
+  function gToday() { var k = dayKey(); return goalsData.days[k] || (goalsData.days[k] = []); }
+  function gSave() { store.set(GKEY, goalsData); }
+  function prevUnfinished() {
+    var today = dayKey(), keys = Object.keys(goalsData.days).filter(function (k) { return k < today && goalsData.days[k].length; }).sort();
+    if (!keys.length) return [];
+    var have = gToday().map(function (g) { return g.text.toLowerCase(); });
+    return goalsData.days[keys[keys.length - 1]].filter(function (g) { return !g.done && have.indexOf(g.text.toLowerCase()) < 0; });
+  }
+  function renderGoals() {
+    var list = gToday(), done = list.filter(function (g) { return g.done; }).length;
+    $('#gList').innerHTML = list.map(function (g) { return '<li class="goal' + (g.done ? ' done' : '') + '" data-id="' + g.id + '"><button class="tick" type="button" role="checkbox" aria-checked="' + g.done + '" aria-label="' + esc(g.text) + '"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></button><span class="g-text">' + esc(g.text) + '</span><button class="g-del" type="button" aria-label="Remove ' + esc(g.text) + '">\u00d7</button></li>'; }).join('');
+    $('#gDone').textContent = done; $('#gTotal').textContent = list.length; $('#gBar').style.width = list.length ? (100 * done / list.length) + '%' : '0%';
+    $('#gEmpty').hidden = list.length > 0;
+    $('#gSuggest').innerHTML = SUGGEST.filter(function (t) { return !list.some(function (g) { return g.text.toLowerCase() === t.toLowerCase(); }); }).slice(0, 3).map(function (t) { return '<button class="chip" type="button" data-s="' + esc(t) + '">+ ' + esc(t) + '</button>'; }).join('');
+    $('#gClear').disabled = !done; $('#gCarry').disabled = !prevUnfinished().length;
+    var all = list.length > 0 && done === list.length; if (all && !gAllDone) toast('Every goal for today is done. Well done!'); gAllDone = all;
+  }
+  function addGoal(text) {
+    text = String(text || '').trim().slice(0, 80); var list = gToday(); if (!text) return;
+    if (list.length >= 12) { toast('That is plenty for one day. Finish a few first.'); return; }
+    list.push({ id: uid(), text: text, done: false }); gSave(); renderGoals();
+  }
+  $('#gForm').onsubmit = function (e) { e.preventDefault(); var inp = $('#gInput'); addGoal(inp.value); inp.value = ''; inp.focus(); };
+  $('#gSuggest').onclick = function (e) { var b = e.target.closest('[data-s]'); if (b) addGoal(b.dataset.s); };
+  $('#gList').onclick = function (e) {
+    var li = e.target.closest('.goal'); if (!li) return; var list = gToday(), g = list.filter(function (x) { return x.id === li.dataset.id; })[0]; if (!g) return;
+    if (e.target.closest('.tick')) { g.done = !g.done; gSave(); renderGoals(); }
+    else if (e.target.closest('.g-del')) { goalsData.days[dayKey()] = list.filter(function (x) { return x !== g; }); gSave(); renderGoals(); }
+  };
+  $('#gCarry').onclick = function () { var u = prevUnfinished(), list = gToday(), room12 = 12 - list.length; u.slice(0, room12).forEach(function (g) { list.push({ id: uid(), text: g.text, done: false }); }); gSave(); renderGoals(); toast(u.length ? 'Carried over ' + Math.min(u.length, room12) + (u.length === 1 ? ' goal' : ' goals') : 'Nothing to carry over'); };
+  $('#gClear').onclick = function () { goalsData.days[dayKey()] = gToday().filter(function (g) { return !g.done; }); gSave(); renderGoals(); };
+  $('#gFocus').onclick = function () { openCard('desk'); };
+  gAllDone = (function () { var l = gToday(); return l.length > 0 && l.every(function (g) { return g.done; }); })();
+  renderGoals();
+
+  /* ---------- mood tracker ---------- */
+  var MKEY = 'nook.mood.v1', moodData = store.get(MKEY, { entries: {} }), mNoteTimer = null;
+  if (!moodData || !moodData.entries) moodData = { entries: {} };
+  var MOODS = [{ v: 1, name: 'Low', c: '#8F9BB8' }, { v: 2, name: 'Tired', c: '#B3A18C' }, { v: 3, name: 'Okay', c: '#C4AE6E' }, { v: 4, name: 'Good', c: '#D98F9C' }, { v: 5, name: 'Glowing', c: '#D9A441' }];
+  var mSel = dayKey(), mView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  function faceSvg(v) {
+    var eyes = v === 5 ? '<path d="M9.5 13.2c.9-1.4 2.3-1.4 3.2 0M19.3 13.2c.9-1.4 2.3-1.4 3.2 0"/>' : '<circle class="fill" cx="11.6" cy="13.4" r="1.2"/><circle class="fill" cx="20.4" cy="13.4" r="1.2"/>';
+    var mouth = { 1: 'M10.5 22.2c1.5-2.6 3.3-3.6 5.5-3.6s4 1 5.5 3.6', 2: 'M11 21c1.6-.9 3.1-1.3 5-1.3s3.4.4 5 1.3', 3: 'M11.5 20.4h9', 4: 'M10.5 18.8c1.5 2.8 3.3 3.8 5.5 3.8s4-1 5.5-3.8', 5: 'M9.8 18.2c1.4 4.4 3.8 5.6 6.2 5.6s4.8-1.2 6.2-5.6z' }[v];
+    return '<svg class="face" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/>' + eyes + '<path d="' + mouth + '"/></svg>';
+  }
+  function mEntry(k) { return moodData.entries[k] || null; }
+  function mSave() { store.set(MKEY, moodData); }
+  function mLogged(k) { var e = mEntry(k); return e && e.mood > 0 ? e : null; }
+  function fmtLong(k) { return new Date(k + 'T12:00:00').toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }); }
+  function renderMood() {
+    var e = mEntry(mSel), today = dayKey();
+    $('#mDate').textContent = mSel === today ? 'How are you feeling today?' : 'How did ' + fmtLong(mSel) + ' feel?';
+    $('#mStamps').innerHTML = MOODS.map(function (m) { return '<button class="stamp" type="button" role="radio" aria-checked="' + !!(e && e.mood === m.v) + '" data-v="' + m.v + '" style="--tint:' + m.c + '">' + faceSvg(m.v) + '<small>' + m.name + '</small></button>'; }).join('');
+    var note = $('#mNote'); if (document.activeElement !== note) note.value = e ? e.note || '' : '';
+    $('#mMonth').textContent = new Date(mView.y, mView.m, 1).toLocaleDateString([], { month: 'long', year: 'numeric' });
+    var first = new Date(mView.y, mView.m, 1), lead = (first.getDay() + 6) % 7, dim = new Date(mView.y, mView.m + 1, 0).getDate(), html = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(function (d) { return '<span class="h">' + d + '</span>'; }).join('');
+    for (var b = 0; b < lead; b++) html += '<span class="blank"></span>';
+    for (var d = 1; d <= dim; d++) {
+      var k = mView.y + '-' + String(mView.m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0'), en = mLogged(k), md = en && MOODS[en.mood - 1], future = k > today;
+      html += '<button type="button" data-k="' + k + '"' + (future ? ' disabled' : '') + ' class="' + (en ? 'logged ' : '') + (k === today ? 'today ' : '') + (k === mSel ? 'sel' : '') + '"' + (md ? ' style="--tint:' + md.c + '" aria-label="' + fmtLong(k) + ': ' + md.name + '"' : ' aria-label="' + fmtLong(k) + '"') + '>' + (md ? faceSvg(en.mood) + '<span class="dnum">' + d + '</span>' : d) + '</button>';
+    }
+    $('#mCal').innerHTML = html;
+    $('#mNext').disabled = mView.y > new Date().getFullYear() || (mView.y === new Date().getFullYear() && mView.m >= new Date().getMonth());
+    var streak = 0, c = new Date(); if (!mLogged(dayKey(c))) c.setDate(c.getDate() - 1);
+    while (mLogged(dayKey(c))) { streak++; c.setDate(c.getDate() - 1); }
+    var sum = 0, n = 0; for (var q = 0; q < 7; q++) { var dd = new Date(); dd.setDate(dd.getDate() - q); var le = mLogged(dayKey(dd)); if (le) { sum += le.mood; n++; } }
+    var total = Object.keys(moodData.entries).filter(function (k2) { return mLogged(k2); }).length;
+    $('#mStreak').textContent = streak; $('#mAvg').textContent = n ? (sum / n).toFixed(1) : '-'; $('#mCount').textContent = total;
+  }
+  $('#mStamps').onclick = function (ev) {
+    var b = ev.target.closest('.stamp'); if (!b) return; var v = +b.dataset.v, en = mEntry(mSel) || (moodData.entries[mSel] = { mood: 0, note: '' });
+    en.mood = en.mood === v ? 0 : v; if (!en.mood && !en.note) delete moodData.entries[mSel];
+    mSave(); renderMood(); if (en.mood) toast('Logged: ' + MOODS[v - 1].name);
+  };
+  $('#mNote').oninput = function () {
+    var v = this.value.slice(0, 160), en = mEntry(mSel) || (moodData.entries[mSel] = { mood: 0, note: '' }); en.note = v; if (!en.mood && !v) delete moodData.entries[mSel];
+    clearTimeout(mNoteTimer); mNoteTimer = setTimeout(function () { mSave(); renderMood(); }, 350);
+  };
+  $('#mCal').onclick = function (ev) { var b = ev.target.closest('button[data-k]'); if (!b || b.disabled) return; mSel = b.dataset.k; renderMood(); };
+  $('#mPrev').onclick = function () { mView.m--; if (mView.m < 0) { mView.m = 11; mView.y--; } renderMood(); };
+  $('#mNext').onclick = function () { mView.m++; if (mView.m > 11) { mView.m = 0; mView.y++; } renderMood(); };
+  renderMood();
+
+  /* ---------- settings ---------- */
+  var SKEY = 'nook.settings.v1', S = Object.assign({ reduce: window.matchMedia('(prefers-reduced-motion: reduce)').matches, hint: true, quality: window.innerWidth <= 720 ? 'balanced' : 'crisp', len: 25, nav: false, tod: 'auto' }, store.get(SKEY, {}) || {});
+  function saveSettings() { S.tod = todMode; store.set(SKEY, S); }
+  function pressGroup(sel, attr, val) { document.querySelectorAll(sel + ' .chip').forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset[attr] === String(val))); }); }
+  function applySettings() {
+    if (room) { room.setReduce(S.reduce); room.setQuality(S.quality); }
+    $('#hint').hidden = !S.hint; $('#nav').classList.toggle('rail', !!S.nav); $('#navCollapse').setAttribute('aria-pressed', String(!!S.nav)); $('#navCollapse').setAttribute('aria-label', S.nav ? 'Expand the menu' : 'Collapse the menu');
+    $('#setMotion').checked = !!S.reduce; $('#setHint').checked = !!S.hint; pressGroup('#setQuality', 'q', S.quality); pressGroup('#setLen', 'len', S.len);
+  }
+  function applyDefaultLen() { if (running || remaining < minutes * 60 || minutes === 5) return; minutes = S.len; remaining = minutes * 60; document.querySelectorAll('#lengths .chip').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.min === String(minutes)); }); render(); }
+  $('#setMotion').onchange = function () { S.reduce = this.checked; applySettings(); saveSettings(); };
+  $('#setHint').onchange = function () { S.hint = this.checked; applySettings(); saveSettings(); };
+  $('#setQuality').onclick = function (e) { var b = e.target.closest('[data-q]'); if (b) { S.quality = b.dataset.q; applySettings(); saveSettings(); } };
+  $('#setLen').onclick = function (e) { var b = e.target.closest('[data-len]'); if (b) { S.len = +b.dataset.len; applySettings(); saveSettings(); applyDefaultLen(); } };
+  $('#setExport').onclick = function () {
+    var out = ['Nook notebook', 'Exported ' + new Date().toLocaleString(), ''];
+    nb.pages.forEach(function (p, i) { out.push('--- Page ' + (i + 1) + (p.title ? ': ' + p.title : '') + ' (' + nbDate(p) + ') ---', p.text || '(blank)', ''); });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out.join('\n')], { type: 'text/plain' })); a.download = 'nook-notebook.txt'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000); toast('Notebook exported');
+  };
+  var wipeArmed = false;
+  $('#setWipe').onclick = function () {
+    var btn = this; if (!wipeArmed) { wipeArmed = true; btn.textContent = 'Tap again to clear'; setTimeout(function () { wipeArmed = false; btn.textContent = 'Clear notebook'; }, 3000); return; }
+    wipeArmed = false; btn.textContent = 'Clear notebook'; nb.pages = [newPage()]; nb.cur = 0; saveNb(); renderNb(); toast('Notebook cleared');
+  };
+  setTodMode(S.tod || 'auto', true); applySettings(); applyDefaultLen();
+
+  /* ---------- addresses: #/notes, #/timer, #/goals ... so the back button and shared links work ---------- */
+  function route() { var m = /^#\/([a-z]+)/.exec(location.hash), id = m && BYSLUG[m[1]]; if (id) { if (openId !== id) openCard(id, true); } else if (openId) closeCard(true); }
+  window.addEventListener('popstate', route); window.addEventListener('hashchange', route);
+  route();
 })();

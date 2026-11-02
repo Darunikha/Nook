@@ -8,37 +8,103 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Nunito:wght@400;600;700;800&family=Fredoka:wght@500;600&family=Caveat:wght@500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Nunito:wght@400;600;700;800&family=Caveat:wght@500;700&display=swap">
     <title>Nook Library</title>
   </head>
   <body>
-    <div class="stage" id="stage" role="img" aria-label="You are sitting at a reading table in a cozy old library hall. Tall bookshelves line every wall, with a balcony above and rows of stacks down both sides of the aisle. Ahead is a great arched window; to your left a fireplace with an armchair and a gramophone; to your right your study shelf; behind you the doors and a card catalog. Mochi the cat is asleep on the far end of your table. Drag to look around; use the labelled tags to interact."></div>
+    <!-- icon sprite: simple line icons used across the navigation and pages -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <symbol id="i-room" viewBox="0 0 24 24"><path d="M3 5.5c3-1.2 6-1 9 1 3-2 6-2.2 9-1v13c-3-1.2-6-1-9 1-3-2-6-2.2-9-1z"/><path d="M12 6.5v13"/></symbol>
+        <symbol id="i-notes" viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a2 2 0 012.8 2.8L7.8 18.8z"/><path d="M14.5 6.5l3 3M12 20.5h8"/></symbol>
+        <symbol id="i-timer" viewBox="0 0 24 24"><path d="M6.5 3.5h11M6.5 20.5h11M7.5 3.5c0 4.5 3 5.5 4.5 8.5-1.5 3-4.5 4-4.5 8.5M16.5 3.5c0 4.5-3 5.5-4.5 8.5 1.5 3 4.5 4 4.5 8.5"/></symbol>
+        <symbol id="i-goals" viewBox="0 0 24 24"><path d="M4 6.5l1.8 1.8L9 5M4 12.5l1.8 1.8L9 11M4 18.5l1.8 1.8L9 17M12.5 7H20M12.5 13H20M12.5 19H20"/></symbol>
+        <symbol id="i-mood" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.2c1 1.6 2.2 2.3 3.5 2.3s2.5-.7 3.5-2.3"/><circle cx="9.3" cy="10" r=".7" fill="currentColor"/><circle cx="14.7" cy="10" r=".7" fill="currentColor"/></symbol>
+        <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.2v2.6M12 18.2v2.6M3.2 12h2.6M18.2 12h2.6M5.8 5.8l1.9 1.9M16.3 16.3l1.9 1.9M18.2 5.8l-1.9 1.9M7.7 16.3l-1.9 1.9"/></symbol>
+        <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2.2"/><circle cx="17" cy="16" r="2.2"/></symbol>
+        <symbol id="i-reading" viewBox="0 0 24 24"><path d="M5 4.5h10a3 3 0 013 3v12H8a3 3 0 01-3-3z"/><path d="M8 19.5h10M9 8.5h5"/></symbol>
+        <symbol id="i-stacks" viewBox="0 0 24 24"><rect x="4.5" y="5" width="4" height="15.5" rx=".7"/><rect x="9.5" y="8" width="4" height="12.5" rx=".7"/><path d="M15.2 20.2L18.4 5.4l3.1.7-3.2 14.8z"/></symbol>
+        <symbol id="i-shelf" viewBox="0 0 24 24"><path d="M5 19.5V12M10 19.5V6M15 19.5V10M20 19.5V14.5M3.5 20.5h18"/></symbol>
+        <symbol id="i-catalog" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="1.6"/><path d="M4 12h16M10.5 8.5h3M10.5 15.5h3"/></symbol>
+        <symbol id="i-window" viewBox="0 0 24 24"><path d="M6 20.5V10a6 6 0 0112 0v10.5zM12 4v16.5M6 12.5h12"/></symbol>
+        <symbol id="i-paw" viewBox="0 0 24 24"><circle cx="7" cy="10" r="1.7"/><circle cx="12" cy="7.2" r="1.7"/><circle cx="17" cy="10" r="1.7"/><path d="M12 12.5c-3 0-5 2.5-5 4.4 0 1.6 1.4 2.1 2.8 1.8 1-.2 1.4-.4 2.2-.4s1.2.2 2.2.4c1.4.3 2.8-.2 2.8-1.8 0-1.9-2-4.4-5-4.4z"/></symbol>
+        <symbol id="i-sunrise" viewBox="0 0 24 24"><path d="M3 18h18M7 18a5 5 0 0110 0M12 6.5v3M5.2 10.7l2 2M18.8 10.7l-2 2"/></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></symbol>
+        <symbol id="i-sunset" viewBox="0 0 24 24"><path d="M3 18h18M7 18a5 5 0 0110 0M12 4.5v5M9.5 7.5l2.5 2.5 2.5-2.5"/></symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 019.5 4.5a8 8 0 1010 10z"/></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></symbol>
+        <symbol id="i-rain" viewBox="0 0 24 24"><path d="M7 15a4 4 0 010-8 5 5 0 019.6 1.2A3.4 3.4 0 0117 15z"/><path d="M8 18l-1 2M12 18l-1 2M16 18l-1 2"/></symbol>
+        <symbol id="i-fire" viewBox="0 0 24 24"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 01-10 0c0-2 1-3.2 2-4 .2 1.4.9 2.3 1.8 2.6C10.5 9 10.8 6 12 3z"/></symbol>
+        <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z"/><path d="M5 19l8-8"/></symbol>
+        <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="18" cy="12" r="1.4" fill="currentColor"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+        <symbol id="i-chev" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
+      </defs>
+    </svg>
+
+    <div class="stage" id="stage" role="img" aria-label="You are sitting at a reading table in a cozy old library hall. Tall bookshelves line every wall, with a balcony above and rows of stacks down both sides of the aisle. Ahead is a great arched window; to your left a fireplace with an armchair and a gramophone; to your right your study shelf; behind you the doors and a card catalog. Mochi the cat is asleep on the far end of your table. Drag to look around; hover or tap things in the room, or use the library menu, to interact."></div>
+
+    <!-- the library menu: a parchment bookplate on the left (desktop) / a tab bar along the bottom (mobile) -->
+    <nav class="lib-nav paper" id="nav" aria-label="Library menu">
+      <div class="nav-head">
+        <svg class="ic logo" aria-hidden="true"><use href="#i-room"/></svg>
+        <div class="nav-title"><b>Nook</b><small id="navClock">your study corner</small></div>
+        <button class="nav-collapse" id="navCollapse" type="button" aria-label="Collapse the menu" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
+      </div>
+      <ul class="nav-main" id="navMain">
+        <li><button class="nav-item" type="button" data-go="room" aria-label="Study Room" title="Study Room"><svg class="ic" aria-hidden="true"><use href="#i-room"/></svg><span><b class="l">Study Room</b><b class="s">Room</b></span></button></li>
+        <li><button class="nav-item" type="button" data-go="notebook" aria-label="My Notes" title="My Notes"><svg class="ic" aria-hidden="true"><use href="#i-notes"/></svg><span><b class="l">My Notes</b><b class="s">Notes</b></span></button></li>
+        <li><button class="nav-item" type="button" data-go="desk" aria-label="Pomodoro" title="Pomodoro"><svg class="ic" aria-hidden="true"><use href="#i-timer"/></svg><span><b class="l">Pomodoro</b><b class="s">Timer</b></span></button></li>
+        <li><button class="nav-item" type="button" data-go="goals" aria-label="Study Goals" title="Study Goals"><svg class="ic" aria-hidden="true"><use href="#i-goals"/></svg><span><b class="l">Study Goals</b><b class="s">Goals</b></span></button></li>
+        <li><button class="nav-item" type="button" data-go="mood" aria-label="Mood Tracker" title="Mood Tracker"><svg class="ic" aria-hidden="true"><use href="#i-mood"/></svg><span><b class="l">Mood Tracker</b><b class="s">Mood</b></span></button></li>
+        <li class="nav-settings"><button class="nav-item" type="button" data-go="settings" aria-label="Settings" title="Settings"><svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg><span>Settings</span></button></li>
+        <li class="nav-morebtn"><button class="nav-item" type="button" id="navMore" aria-label="More of the library" aria-expanded="false" aria-controls="navSheet"><svg class="ic" aria-hidden="true"><use href="#i-more"/></svg><span>More</span></button></li>
+      </ul>
+      <div class="nav-sheet" id="navSheet">
+        <p class="nav-label">Around the room</p>
+        <ul class="nav-sub">
+          <li class="only-mobile"><button class="nav-item" type="button" data-go="settings"><svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg><span>Settings</span></button></li>
+          <li><button class="nav-item" type="button" data-go="music" title="Gramophone"><svg class="ic" aria-hidden="true"><use href="#i-music"/></svg><span>Gramophone</span></button></li>
+          <li><button class="nav-item" type="button" data-go="reading" title="Reading list"><svg class="ic" aria-hidden="true"><use href="#i-reading"/></svg><span>Reading list</span></button></li>
+          <li><button class="nav-item" type="button" data-go="library" title="The stacks"><svg class="ic" aria-hidden="true"><use href="#i-stacks"/></svg><span>The stacks</span></button></li>
+          <li><button class="nav-item" type="button" data-go="shelf" title="Study shelf"><svg class="ic" aria-hidden="true"><use href="#i-shelf"/></svg><span>Study shelf</span></button></li>
+          <li><button class="nav-item" type="button" data-go="board" title="Card catalog"><svg class="ic" aria-hidden="true"><use href="#i-catalog"/></svg><span>Card catalog</span></button></li>
+          <li><button class="nav-item" type="button" data-go="window" title="Arched window"><svg class="ic" aria-hidden="true"><use href="#i-window"/></svg><span>Arched window</span></button></li>
+          <li><button class="nav-item" type="button" data-go="cat" title="Mochi"><svg class="ic" aria-hidden="true"><use href="#i-paw"/></svg><span>Mochi</span></button></li>
+        </ul>
+      </div>
+    </nav>
 
     <div class="brand glass"><h1>Nook</h1><span id="clockText">your study corner</span></div>
     <button class="timer-pill glass" id="timerPill" hidden><i id="pillDot"></i><span id="pillSub">Biology</span><b id="pillTime">25:00</b></button>
     <div class="spots" id="spots" role="group" aria-label="Things in the room"></div>
     <p class="hint glass" id="hint"><span class="long">Drag to look around the library · hover or tap things to use them</span><span class="short">Drag to look around · tap things</span></p>
 
-    <section class="card glass" id="card" role="dialog" aria-labelledby="cardTitle" hidden>
+    <section class="card paper" id="card" role="dialog" aria-labelledby="cardTitle" hidden>
       <div class="card-head">
         <div><span class="kicker" id="cardKicker">Study desk</span><h2 id="cardTitle">Settle in</h2></div>
         <button class="close" id="cardClose" aria-label="Back to your seat">×</button>
       </div>
+      <div class="rule" aria-hidden="true"><i></i></div>
 
+      <!-- Pomodoro: a dial -->
       <div class="sect" data-sect="desk">
-        <p class="sub">Pick a subject. When the timer ends, a new book lands on your shelf.</p>
-        <div class="modes" id="subjects" role="group" aria-label="Subject"></div>
-        <div class="modes" id="lengths" role="group" aria-label="Session length">
+        <div class="dial">
+          <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="trk" cx="60" cy="60" r="52"/><circle class="arc" id="dialArc" cx="60" cy="60" r="52" transform="rotate(-90 60 60)"/></svg>
+          <div class="dial-in"><span id="time" role="timer">25:00</span><small id="timeSub">ready when you are</small></div>
+        </div>
+        <div class="modes tabs" id="subjects" role="group" aria-label="Subject"></div>
+        <div class="seg" id="lengths" role="group" aria-label="Session length">
           <button class="chip" data-min="25" aria-pressed="true">Focus 25</button>
           <button class="chip" data-min="50" aria-pressed="false">Deep 50</button>
           <button class="chip" data-min="5" aria-pressed="false">Break 5</button>
         </div>
-        <div class="big-time"><span id="time" role="timer">25:00</span><small id="timeSub">ready when you are</small></div>
-        <div class="progress"><span id="prog" style="width:0%"></span></div>
         <div class="row"><button class="btn primary" id="startBtn">Start focus</button><button class="btn" id="resetBtn">Reset</button></div>
+        <p class="sub center">Pick a subject. When the timer ends, a new book lands on your shelf.</p>
         <button class="link" id="skipBtn">Preview: finish this session now</button>
       </div>
 
+      <!-- My Notes: a journal sheet -->
       <div class="sect" data-sect="notebook" hidden>
         <div class="nb-bar">
           <button class="chip" id="nbPrev" aria-label="Previous page">&lsaquo;</button>
@@ -46,18 +112,88 @@
           <button class="chip" id="nbNext" aria-label="Next page">&rsaquo;</button>
           <button class="chip" id="nbNew">+ New page</button>
         </div>
-        <p class="nb-date" id="nbDate"></p>
-        <input id="nbTitle" class="nb-title" type="text" placeholder="Title (optional)" maxlength="60" aria-label="Page title" autocomplete="off">
-        <textarea id="nbText" class="nb-text" placeholder="Write your thoughts, goals or notes. Everything you write appears on the notebook pages on your desk." maxlength="4000" aria-label="Notebook page"></textarea>
+        <div class="sheet">
+          <p class="nb-date" id="nbDate"></p>
+          <input id="nbTitle" class="nb-title" type="text" placeholder="Title (optional)" maxlength="60" aria-label="Page title" autocomplete="off">
+          <textarea id="nbText" class="nb-text" placeholder="Write your thoughts, goals or notes. Everything you write appears on the notebook pages on your desk." maxlength="4000" aria-label="Notebook page"></textarea>
+        </div>
         <div class="nb-foot"><small id="nbCount">0 words</small><small id="nbSaved">Saved</small><button class="btn" id="nbDelete">Delete page</button></div>
       </div>
 
+      <!-- Study Goals: an index card -->
+      <div class="sect" data-sect="goals" hidden>
+        <div class="goal-head">
+          <div class="goal-count"><b id="gDone">0</b><span>of <i id="gTotal">0</i> done today</span></div>
+          <div class="meter" aria-hidden="true"><span id="gBar"></span></div>
+        </div>
+        <div class="index-card">
+          <ul class="goal-list" id="gList" aria-label="Today's goals"></ul>
+          <p class="empty" id="gEmpty">Nothing here yet. What would make today feel well spent?</p>
+          <form class="goal-add" id="gForm" autocomplete="off">
+            <input id="gInput" type="text" maxlength="80" placeholder="Add a goal for today..." aria-label="New goal">
+            <button class="btn primary" type="submit">Add</button>
+          </form>
+        </div>
+        <div class="suggest" id="gSuggest" role="group" aria-label="Suggestions"></div>
+        <div class="row split"><button class="link" id="gCarry">Carry over unfinished goals</button><button class="link" id="gClear">Clear completed</button></div>
+        <button class="btn" id="gFocus">Start a focus session</button>
+      </div>
+
+      <!-- Mood Tracker: stamps and a month of them -->
+      <div class="sect" data-sect="mood" hidden>
+        <p class="sub" id="mDate">How are you feeling today?</p>
+        <div class="stamps" id="mStamps" role="radiogroup" aria-label="Mood"></div>
+        <textarea id="mNote" class="m-note" maxlength="160" rows="2" placeholder="A line about the day (optional)" aria-label="Note about this day"></textarea>
+        <div class="month-nav"><button class="chip" id="mPrev" aria-label="Previous month">&lsaquo;</button><b id="mMonth">Month</b><button class="chip" id="mNext" aria-label="Next month">&rsaquo;</button></div>
+        <div class="mcal" id="mCal"></div>
+        <div class="ledger three"><div><b id="mStreak">0</b><small>day streak</small></div><div><b id="mAvg">-</b><small>last 7 days</small></div><div><b id="mCount">0</b><small>days logged</small></div></div>
+      </div>
+
+      <!-- Settings: a bookplate of preferences -->
+      <div class="sect" data-sect="settings" hidden>
+        <section class="set-group">
+          <h3>Light in the library</h3>
+          <div class="tods" role="group" aria-label="Time of day">
+            <button class="chip" data-tod="auto" aria-pressed="true"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Live</button>
+            <button class="chip" data-tod="morning" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-sunrise"/></svg>Morning</button>
+            <button class="chip" data-tod="day" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-sun"/></svg>Day</button>
+            <button class="chip" data-tod="golden" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-sunset"/></svg>Golden</button>
+            <button class="chip" data-tod="night" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg>Night</button>
+          </div>
+        </section>
+        <section class="set-group">
+          <h3>Comfort</h3>
+          <label class="switch"><span><b>Reduce motion</b><small>Still dust, steam and gentle sway</small></span><input type="checkbox" id="setMotion"><i aria-hidden="true"></i></label>
+          <label class="switch"><span><b>Show the how-to hint</b><small>The line along the bottom of the room</small></span><input type="checkbox" id="setHint"><i aria-hidden="true"></i></label>
+          <div class="field"><span class="field-label">Picture quality</span>
+            <div class="seg" id="setQuality" role="group" aria-label="Picture quality">
+              <button class="chip" data-q="crisp" aria-pressed="false">Crisp</button><button class="chip" data-q="balanced" aria-pressed="false">Balanced</button><button class="chip" data-q="light" aria-pressed="false">Light</button>
+            </div>
+          </div>
+        </section>
+        <section class="set-group">
+          <h3>Focus</h3>
+          <div class="field"><span class="field-label">Default session</span>
+            <div class="seg" id="setLen" role="group" aria-label="Default session length">
+              <button class="chip" data-len="25" aria-pressed="false">25 min</button><button class="chip" data-len="50" aria-pressed="false">50 min</button>
+            </div>
+          </div>
+        </section>
+        <section class="set-group">
+          <h3>Your notebook</h3>
+          <div class="row"><button class="btn" id="setExport">Export as text</button><button class="btn" id="setWipe">Clear notebook</button></div>
+          <p class="sub small">Notes, goals, moods and these settings are saved in this browser only.</p>
+        </section>
+      </div>
+
+      <!-- Gramophone: brass sliders -->
       <div class="sect" data-sect="music" hidden>
         <p class="sub">Mix your own background. Every sound is generated live in your browser.</p>
         <button class="btn primary" id="playBtn">Play the record</button>
         <div class="mix" id="mix"></div>
       </div>
 
+      <!-- Reading list: a bookplate -->
       <div class="sect" data-sect="chair" hidden>
         <span class="sample">Sample data</span>
         <div class="current">
@@ -72,9 +208,10 @@
         <div class="row"><button class="btn" id="add10">+10 pages</button><button class="btn" id="add25">+25 pages</button></div>
       </div>
 
+      <!-- The stacks: catalog slips -->
       <div class="sect" data-sect="library" hidden>
         <span class="sample">Sample data</span>
-        <div><div class="pages" style="margin:0 0 6px; font-weight:700; color:var(--ink)"><span>2026 reading goal</span><span>9 of 12 books</span></div><div class="bar"><span style="width:75%; background: var(--brass)"></span></div></div>
+        <div><div class="pages goal-line"><span>2026 reading goal</span><span>9 of 12 books</span></div><div class="bar brass"><span style="width:75%"></span></div></div>
         <ul class="finished">
           <li><i style="background:#7F9C83"></i><div><b>The House in the Cerulean Sea</b><small>TJ Klune · Oct</small></div><span class="stars" aria-label="5 stars">★★★★★</span></li>
           <li><i style="background:#C9952F"></i><div><b>Tomorrow, and Tomorrow, and Tomorrow</b><small>Gabrielle Zevin · Sep</small></div><span class="stars" aria-label="4 stars">★★★★☆</span></li>
@@ -83,8 +220,9 @@
         </ul>
       </div>
 
+      <!-- Study shelf: a ledger -->
       <div class="sect" data-sect="shelf" hidden>
-        <div class="stat-grid">
+        <div class="ledger three">
           <div><b id="sBooks">0</b><small>books</small></div>
           <div><b id="sHours">0h</b><small>studied</small></div>
           <div><b>6 days</b><small>streak</small></div>
@@ -93,24 +231,27 @@
         <p class="book-note" id="bookNote">Tap any book on the shelf to see that session.</p>
       </div>
 
+      <!-- Card catalog: stamped cards -->
       <div class="sect" data-sect="board" hidden>
         <p class="sub">Every day you study gets a stamped card in the catalog. Darker means more time studied.</p>
         <div class="cal" id="cal"></div>
         <p class="sub" id="calNote"></p>
       </div>
 
+      <!-- Arched window: light of the day -->
       <div class="sect" data-sect="window" hidden>
         <p class="sub" id="todNow">Live follows your clock.</p>
         <div class="tods" role="group" aria-label="Time of day">
-          <button class="chip" data-tod="auto" aria-pressed="true">Live</button>
-          <button class="chip" data-tod="morning" aria-pressed="false">Morning</button>
-          <button class="chip" data-tod="day" aria-pressed="false">Day</button>
-          <button class="chip" data-tod="golden" aria-pressed="false">Golden</button>
-          <button class="chip" data-tod="night" aria-pressed="false">Night</button>
+          <button class="chip" data-tod="auto" aria-pressed="true"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Live</button>
+          <button class="chip" data-tod="morning" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-sunrise"/></svg>Morning</button>
+          <button class="chip" data-tod="day" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-sun"/></svg>Day</button>
+          <button class="chip" data-tod="golden" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-sunset"/></svg>Golden</button>
+          <button class="chip" data-tod="night" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg>Night</button>
         </div>
         <p class="sub">Turn up rain on the gramophone and it streaks down this window.</p>
       </div>
 
+      <!-- Mochi -->
       <div class="sect" data-sect="cat" hidden>
         <p class="sub" id="catLine">Curled up on the rug.</p>
         <div class="row"><button class="btn primary" id="petBtn">Pet Mochi</button><button class="btn" id="wakeBtn">Say hello</button></div>

@@ -17,6 +17,21 @@ Drag to look around, then tap a tag to use something.
 
 The light follows your real time of day (morning, day, golden hour, night). You can also switch it by hand from the window.
 
+## The library menu
+
+A parchment menu runs down the left of the screen (a tab bar along the bottom on phones). Every page is also reachable by address, so the back button works.
+
+| Page | Address | What it does |
+| --- | --- | --- |
+| **Study Room** | `#/room` | Back to your seat. |
+| **My Notes** | `#/notes` | A notebook: write, add pages, and it is handwritten onto the journal on your desk. |
+| **Pomodoro** | `#/timer` | The focus timer on the desk. |
+| **Study Goals** | `#/goals` | A daily checklist on an index card. |
+| **Mood Tracker** | `#/mood` | Log how the day felt, with a month of stamps. |
+| **Settings** | `#/settings` | Light of day, reduced motion, picture quality, default session, export or clear notes. |
+
+Notes, goals, moods and settings are saved in this browser (localStorage). Nothing is sent anywhere.
+
 ## Run it
 
 You'll need [Node.js](https://nodejs.org) installed.
