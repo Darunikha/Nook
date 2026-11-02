@@ -91,7 +91,7 @@ import './three-setup.js';
     function mat(c, o) { var env = o && o.env; if (o && 'env' in o) { o = Object.assign({}, o); delete o.env; } var m = new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .7, metalness: 0 }, o)); if (env != null) m.userData.env = env; return m; }
     function add(mesh, parent, cast) { mesh.castShadow = cast !== false; mesh.receiveShadow = true; if (tag) mesh.userData.hot = tag; (parent || scene).add(mesh); return mesh; }
     function geoBox(w, h, d, r) { return RB ? new RB(w, h, d, 4, Math.min((r || .1) * .4, Math.min(w, h, d) * .3)) : new THREE.BoxGeometry(w, h, d); }
-    function box(w, h, d, m, x, y, z, parent, cast, r) { var mesh = new THREE.Mesh(geoBox(w, h, d, r), m.isMaterial ? m : mat(m)); mesh.position.set(x, y, z); return add(mesh, parent, cast); }
+    function box(w, h, d, m, x, y, z, parent, cast, r) { var mesh = new THREE.Mesh(geoBox(w, h, d, r), Array.isArray(m) || m.isMaterial ? m : mat(m)); mesh.position.set(x, y, z); return add(mesh, parent, cast); }
     function flat(w, h, d, m, x, y, z, parent, cast) { var mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m.isMaterial ? m : mat(m)); mesh.position.set(x, y, z); return add(mesh, parent, cast === true); }
     function cyl(rt, rb, h, m, x, y, z, seg, parent) { var mesh = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 32), m.isMaterial ? m : mat(m)); mesh.position.set(x, y, z); return add(mesh, parent); }
     function ball(r, m, x, y, z, sx, sy, sz, parent) { var mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 20), m.isMaterial ? m : mat(m)); mesh.position.set(x, y, z); mesh.scale.set(sx || 1, sy || 1, sz || 1); return add(mesh, parent); }
@@ -641,39 +641,100 @@ import './three-setup.js';
       for (var sp = -2; sp <= 2; sp++) cyl(.008, .008, .19, wd, sp * .085, .835, .22, 8, g);
       return g;
     }
+    var deskWood = woodMat('#5A3820', { seed: 31, roughness: .34, env: .75, bumpScale: .02, contrast: .55, lines: 160 });
     function table(x, z, len, wdt, o) {
-      o = o || {};
-      box(wdt + .05, .04, len + .05, peach, x, .785, z, null, true, .02);                 // top (surface stays at .805)
-      box(wdt - .04, .03, len - .04, shelfDark, x, .745, z, null, true, .01);              // underside moulding
-      box(wdt - .14, .1, len - .14, shelfDark, x, .68, z, null, true, .02);                // apron
+      o = o || {}; var top = o.wood || peach, dk = shelfDark;
+      box(wdt + .08, .026, len + .08, top, x, .792, z, null, true, .05);                  // overhanging moulded lip (surface stays at .805)
+      box(wdt + .03, .03, len + .03, top, x, .764, z, null, true, .02);
+      box(wdt - .04, .026, len - .04, dk, x, .736, z, null, true, .01);                    // underside moulding
+      box(wdt - .14, .1, len - .14, dk, x, .675, z, null, true, .02);                      // apron
       [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (p) {
         var lg = new THREE.Mesh(turnedGeo, shelfM); lg.position.set(x + p[0] * (wdt / 2 - .09), 0, z + p[1] * (len / 2 - .09)); lg.scale.set(1.2, 1.04, 1.2); add(lg, null, true);
         cyl(.03, .026, .014, brassM, x + p[0] * (wdt / 2 - .09), .007, z + p[1] * (len / 2 - .09), 14);
       });
-      if (o.drawers) [-1, 1].forEach(function (s) { [-1, 1].forEach(function (k) { box(.02, .075, .72, mat('#4F2F1C', { roughness: .45, env: .5 }), x + s * (wdt / 2 - .07 + .01), .685, z + k * .6, null, true, .01); [-.12, .12].forEach(function (q) { cyl(.008, .008, .05, brassM, x + s * (wdt / 2 - .045), .685, z + k * .6 + q, 8).rotation.z = Math.PI / 2; }); }); });
+      if (o.wood) {
+        [-1, 1].forEach(function (sd) {
+          flat(wdt - .06, .002, .005, brassM, x, .8055, z + sd * (len / 2 - .02)); flat(.005, .002, len - .06, brassM, x + sd * (wdt / 2 - .02), .8055, z);                          // brass inlay line around the top
+          box(wdt - .34, .055, .012, mat('#3E2616', { roughness: .4, env: .5 }), x, .675, z + sd * (len / 2 - .07 + .006), null, true, .005);                                       // end panels
+          flat(wdt - .3, .003, .004, brassM, x, .706, z + sd * (len / 2 - .07 + .013)); flat(wdt - .3, .003, .004, brassM, x, .644, z + sd * (len / 2 - .07 + .013));
+        });
+      }
+      if (o.drawers) [-1, 1].forEach(function (sd) { [-1, 1].forEach(function (k) {
+        box(.02, .075, .72, mat('#4F2F1C', { roughness: .45, env: .5 }), x + sd * (wdt / 2 - .07 + .01), .685, z + k * .6, null, true, .01);
+        [-.12, .12].forEach(function (q) { cyl(.008, .008, .05, brassM, x + sd * (wdt / 2 - .045), .685, z + k * .6 + q, 8).rotation.z = Math.PI / 2; });
+        cyl(.007, .007, .004, brassM, x + sd * (wdt / 2 - .058), .665, z + k * .6, 10).rotation.z = Math.PI / 2;
+      }); });
     }
     table(0, -5.2, 2.0, 1.1); mushroomLamp(0, .8, -5.6, '#1F5A44'); mushroomLamp(0, .8, -4.8, '#A8601E');
     [-.8, .8].forEach(function (x) { chair(x, -5.6, x < 0 ? Math.PI / 2 : -Math.PI / 2, mint); chair(x, -4.8, x < 0 ? Math.PI / 2 : -Math.PI / 2, butter); });
 
     /* ---------- YOUR table ---------- */
-    tag = 'desk';
+    tag = null;
     var DX = 0, DZ = -.55, DY = .8;
-    table(DX, DZ, 2.4, 1.2, { drawers: true });
+    deskWood.map.repeat.set(2, 4); deskWood.bumpMap.repeat.set(2, 4);
+    table(DX, DZ, 2.4, 1.2, { drawers: true, wood: deskWood });
     chair(-.85, DZ - .55, Math.PI / 2, mint); chair(.85, DZ - .55, -Math.PI / 2, rose);
+    tag = 'lamp';
     var al = armLamp(DX + .47, DY, DZ + .22, Math.PI);
+    var armBulb = lampBulbs[lampBulbs.length - 1], armGlow = scene.children[scene.children.length - 1];
+    tag = null;
     var lampLight = new THREE.PointLight('#FFC98A', 1, 5, 2); lampLight.position.set(al.x, al.y, al.z); scene.add(lampLight);
     var deskSpot = new THREE.SpotLight('#FFD39A', 1, 4, 1.0, .85, 1.6); deskSpot.position.set(al.x, al.y, al.z); deskSpot.target.position.set(DX - .05, DY, DZ + .6); deskSpot.castShadow = true; deskSpot.shadow.mapSize.set(1024, 1024); deskSpot.shadow.bias = -.0006; deskSpot.shadow.radius = 5; scene.add(deskSpot); scene.add(deskSpot.target);
-    var pageTex = canvasTex(256, 360, function (x, w, h) {
-      x.fillStyle = '#EFE3CA'; x.fillRect(0, 0, w, h);
-      for (var k = 0; k < 900; k++) { x.fillStyle = 'rgba(120,90,50,' + (.015 + (k % 5) * .006) + ')'; x.fillRect((k * 53) % w, (k * 89) % h, 2, 2); }
-      x.fillStyle = 'rgba(55,38,26,.5)'; for (var ln = 0; ln < 23; ln++) { var lw = w * (.6 + ((ln * 37) % 11) / 40); x.fillRect(26, 34 + ln * 13.4, ln % 6 === 5 ? lw * .5 : lw, 1.5); }
-      var gu = x.createLinearGradient(0, 0, w, 0); gu.addColorStop(0, 'rgba(60,40,20,.35)'); gu.addColorStop(.18, 'rgba(60,40,20,0)'); x.fillStyle = gu; x.fillRect(0, 0, w, h);
+    /* the notebook: a leather-bound journal. What you write in the Notebook card is handwritten onto these pages. */
+    tag = 'notebook';
+    var NB = { title: '', lines: [], date: '', page: 1, total: 1, empty: true };
+    var nbCtx = document.createElement('canvas').getContext('2d');
+    var NBFONT = '33px Caveat, "Segoe Script", "Bradley Hand", cursive', NBPER = 17;
+    function nbWrap(txt, maxW) {
+      nbCtx.font = NBFONT; var out = [];
+      String(txt).split('\n').forEach(function (para) {
+        if (!para.trim()) { out.push(''); return; }
+        var cur = ''; para.split(/\s+/).forEach(function (w) { var t = cur ? cur + ' ' + w : w; if (nbCtx.measureText(t).width > maxW && cur) { out.push(cur); cur = w; } else cur = t; }); out.push(cur);
+      });
+      return out;
+    }
+    function nbDraw(side) {
+      return function (x, w, h) {
+        x.fillStyle = '#EFE3CA'; x.fillRect(0, 0, w, h);
+        for (var k = 0; k < 2600; k++) { x.fillStyle = 'rgba(120,90,50,' + (.012 + (k % 5) * .005) + ')'; x.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+        var LH = 34, top = 78, left = side ? 40 : 54;
+        x.strokeStyle = 'rgba(70,90,120,.28)'; x.lineWidth = 1.4; for (var ln = 0; ln <= NBPER; ln++) { x.beginPath(); x.moveTo(26, top + ln * LH); x.lineTo(w - 22, top + ln * LH); x.stroke(); }
+        x.strokeStyle = 'rgba(190,80,90,.32)'; x.beginPath(); x.moveTo(side ? w - 36 : 40, 40); x.lineTo(side ? w - 36 : 40, h - 30); x.stroke();
+        var lines = NB.lines.slice(side * NBPER, side * NBPER + NBPER);
+        x.fillStyle = '#2B2A44'; x.textBaseline = 'alphabetic';
+        lines.forEach(function (t, i) { var isTitle = !side && i === 0 && NB.title; x.font = isTitle ? '700 38px Caveat, "Segoe Script", cursive' : NBFONT; x.fillText(t, left, top + (i + 1) * LH - 7); });
+        if (!side) { x.font = '22px Caveat, "Segoe Script", cursive'; x.fillStyle = 'rgba(60,45,40,.65)'; x.fillText(NB.date, left, 50); }
+        if (NB.empty && !side) { x.font = '28px Caveat, "Segoe Script", cursive'; x.fillStyle = 'rgba(60,45,40,.32)'; x.fillText('click the notebook to start writing...', left, top + LH - 7); }
+        x.font = '20px Caveat, cursive'; x.fillStyle = 'rgba(60,45,40,.55)'; x.textAlign = 'center'; x.fillText(String(NB.page * 2 - 1 + side), w / 2, h - 14); x.textAlign = 'left';
+        var gu = side ? x.createLinearGradient(0, 0, w * .2, 0) : x.createLinearGradient(w, 0, w * .8, 0); gu.addColorStop(0, 'rgba(50,30,15,.38)'); gu.addColorStop(1, 'rgba(50,30,15,0)'); x.fillStyle = gu; x.fillRect(0, 0, w, h);
+      };
+    }
+    var pageTexL = canvasTex(512, 720, nbDraw(0)), pageTexR = canvasTex(512, 720, nbDraw(1));
+    function redrawNB() { redraw(pageTexL); redraw(pageTexR); }
+    var pageML = new THREE.MeshStandardMaterial({ map: pageTexL, color: '#BDB198', roughness: .92 }), pageMR = new THREE.MeshStandardMaterial({ map: pageTexR, color: '#BDB198', roughness: .92 });
+    var pageEdge = new THREE.MeshStandardMaterial({ map: canvasTex(16, 64, function (x, w, h) { x.fillStyle = '#E9DDC2'; x.fillRect(0, 0, w, h); for (var q = 0; q < h; q += 2) { x.fillStyle = 'rgba(120,95,55,' + (.12 + (q % 6) * .02) + ')'; x.fillRect(0, q, w, 1); } }), roughness: .95 });
+    var coverTex = canvasTex(512, 380, function (x, w, h) {
+      x.fillStyle = '#4B1D23'; x.fillRect(0, 0, w, h);
+      for (var k = 0; k < 14000; k++) { x.fillStyle = k % 2 ? 'rgba(0,0,0,.1)' : 'rgba(255,200,170,.05)'; x.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random(), 1 + Math.random()); }
+      x.strokeStyle = '#C9A55C'; x.lineWidth = 4; x.strokeRect(10, 10, w - 20, h - 20); x.lineWidth = 2; x.strokeRect(20, 20, w - 40, h - 40);
     });
-    var pageM = new THREE.MeshStandardMaterial({ map: pageTex, roughness: .92 });
-    box(.56, .03, .4, mat('#4B1D23', { roughness: .55, env: .6 }), DX - .08, DY + .015, DZ + .82, null, true, .012);
-    box(.26, .025, .37, pageM, DX - .215, DY + .036, DZ + .82, null, true, .01).rotation.z = .08;
-    box(.26, .025, .37, pageM, DX + .055, DY + .036, DZ + .82, null, true, .01).rotation.z = -.08;
-    capsule(.009, .2, mat('#15151A', { roughness: .25, metalness: .3, env: 1 }), DX + .27, DY + .02, DZ + .82).rotation.set(Math.PI / 2, 0, .5);
+    var leatherSide = mat('#4B1D23', { roughness: .55, env: .6 }), coverTop = new THREE.MeshStandardMaterial({ map: coverTex, bumpMap: coverTex, bumpScale: .3, roughness: .55, envMapIntensity: .6 });
+    var NBX = DX - .08, NBZ = DZ + .84;
+    box(.62, .014, .44, [leatherSide, leatherSide, coverTop, leatherSide, leatherSide, leatherSide], NBX, DY + .007, NBZ, null, true, .01);
+    var pbL = box(.265, .03, .385, [pageEdge, pageEdge, pageML, pageEdge, pageEdge, pageEdge], NBX - .137, DY + .03, NBZ, null, true, .006); pbL.rotation.z = .05;
+    var pbR = box(.265, .03, .385, [pageEdge, pageEdge, pageMR, pageEdge, pageEdge, pageEdge], NBX + .137, DY + .03, NBZ, null, true, .006); pbR.rotation.z = -.05;
+    box(.014, .036, .39, mat('#2E1217', { roughness: .6 }), NBX, DY + .022, NBZ, null, false, .004);
+    var rib = mat('#E3A9B1', { roughness: .35, env: .7 });
+    box(.011, .002, .3, rib, NBX + .03, DY + .0465, NBZ + .06, null, false, .001).rotation.z = -.05;
+    box(.011, .002, .07, rib, NBX + .03, DY + .036, NBZ + .24, null, false, .001).rotation.x = .6; box(.011, .004, .006, giltM, NBX + .03, DY + .0285, NBZ + .272, null, false, .001);
+    var pen = new THREE.Group(); pen.position.set(DX + .28, DY + .036, DZ + .9); pen.rotation.y = .75; scene.add(pen);
+    var lac = mat('#15151A', { roughness: .18, metalness: .3, env: 1.4 });
+    cyl(.0075, .0075, .11, lac, 0, 0, 0, 16, pen).rotation.z = Math.PI / 2; cyl(.0082, .0082, .006, brassM, .04, 0, 0, 16, pen).rotation.z = Math.PI / 2;
+    cyl(.0068, .0075, .045, lac, -.075, 0, 0, 16, pen).rotation.z = Math.PI / 2; cyl(.0082, .0082, .004, brassM, -.052, 0, 0, 16, pen).rotation.z = Math.PI / 2;
+    var nib = new THREE.Mesh(new THREE.ConeGeometry(.0055, .028, 12), brassM); nib.rotation.z = Math.PI / 2; nib.position.x = .069; add(nib, pen, true);
+    box(.045, .0022, .003, brassM, -.075, .0085, 0, pen, false, .001);
+    tag = null;
+    tag = 'mug';
     var MX = DX - .45, MZ = DZ + .5;
     /* a proper hollow mug: glazed wall, rounded rim, handle, saucer and a latte-art top */
     var mugG = new THREE.Group(); mugG.position.set(MX, DY, MZ); scene.add(mugG);
@@ -690,19 +751,38 @@ import './three-setup.js';
       x.strokeStyle = '#F2DFC4'; x.lineWidth = 7; x.lineCap = 'round'; x.beginPath(); x.moveTo(w / 2, h * .44); x.lineTo(w / 2, h * .8); x.stroke();
     });
     var tea = new THREE.Mesh(new THREE.CircleGeometry(.0422, 48), new THREE.MeshStandardMaterial({ map: latteTex, roughness: .18 })); tea.rotation.x = -Math.PI / 2; tea.position.y = .102; add(tea, mugG, false);
+    tag = null;
     var steam = []; for (var st = 0; st < 3; st++) { var sp = glow('#FFFFFF', .16, MX, DY + .22, MZ, .3); sp.material = sp.material.clone(); sp.userData.t = st / 3; steam.push(sp); }
-    var deskClock = { time: '25:00', color: '#93AE96', running: false };
-    var dcTex = canvasTex(256, 128, function (x, w, h) { x.fillStyle = '#16110E'; x.fillRect(0, 0, w, h); x.fillStyle = deskClock.color; x.fillRect(0, h - 8, w, 8); x.fillStyle = '#EBD3A0'; x.font = '600 74px "Young Serif", Georgia, serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(deskClock.time, w / 2, h / 2 + 10); if (deskClock.running) { x.fillStyle = '#E0883A'; x.beginPath(); x.arc(w - 18, 24, 6, 0, 7); x.fill(); } });
-    var dc = new THREE.Group(); dc.position.set(DX - .1, DY + .11, DZ + .38); scene.add(dc);
-    box(.34, .2, .1, mat('#8F6A30', { metalness: .85, roughness: .34, env: 1.2 }), 0, 0, 0, dc, true, .05);
-    var dcFace = new THREE.Mesh(new THREE.PlaneGeometry(.26, .13), new THREE.MeshBasicMaterial({ map: dcTex, toneMapped: false })); dcFace.position.z = .052; add(dcFace, dc, false);
-    (function () {
-      var br = mat('#B88A3E', { metalness: .92, roughness: .3, env: 1.3 });
-      box(.3, .008, .006, br, 0, .069, .052, dc, false, .002); box(.3, .008, .006, br, 0, -.069, .052, dc, false, .002); box(.008, .14, .006, br, -.146, 0, .052, dc, false, .002); box(.008, .14, .006, br, .146, 0, .052, dc, false, .002);
-      var gl = new THREE.Mesh(new THREE.PlaneGeometry(.284, .13), new THREE.MeshStandardMaterial({ color: '#FFFFFF', transparent: true, opacity: .08, roughness: .02, envMapIntensity: 2.2, depthWrite: false })); gl.position.z = .056; dc.add(gl);
-      var hnd = new THREE.Mesh(new THREE.TorusGeometry(.05, .007, 8, 24, Math.PI), br); hnd.position.set(0, .1, 0); add(hnd, dc, false);
-      [-.13, .13].forEach(function (fx) { cyl(.014, .018, .018, br, fx, -.108, 0, 14, dc); });
-    })();
+    /* the Pomodoro timer: brass drum case, enamel ring, ivory dial with a progress ring, and a window with the time */
+    var deskClock = { time: '25:00', color: '#93AE96', running: false, frac: 1, label: 'FOCUS', sub: '' };
+    var dcTex = canvasTex(512, 512, function (x, w, h) {
+      var cx = w / 2, cy = h / 2, R = w / 2 - 4, serif = '"Young Serif", Georgia, serif', sans = 'Nunito, "Segoe UI", sans-serif';
+      var g = x.createRadialGradient(cx, cy * .85, 20, cx, cy, R); g.addColorStop(0, '#FAF3E0'); g.addColorStop(1, '#E4D5B3'); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, R, 0, 7); x.fill();
+      x.strokeStyle = '#2E221B'; for (var i = 0; i < 60; i++) { var a = i / 60 * Math.PI * 2 - Math.PI / 2, big = i % 5 === 0, r0 = R - 10, r1 = R - (big ? 38 : 22); x.lineWidth = big ? 4 : 2; x.beginPath(); x.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); x.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); x.stroke(); }
+      x.fillStyle = '#3A2A22'; x.font = '600 28px ' + serif; x.textAlign = 'center'; x.textBaseline = 'middle';
+      for (var n = 1; n <= 12; n++) { var an = n / 12 * Math.PI * 2 - Math.PI / 2; x.fillText(String(n * 5), cx + Math.cos(an) * (R - 62), cy + Math.sin(an) * (R - 62)); }
+      var ringR = R - 108; x.lineCap = 'round'; x.lineWidth = 20; x.strokeStyle = 'rgba(60,40,30,.12)'; x.beginPath(); x.arc(cx, cy, ringR, 0, 7); x.stroke();
+      if (deskClock.frac > .003) { x.strokeStyle = deskClock.color; x.beginPath(); x.arc(cx, cy, ringR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * deskClock.frac); x.stroke(); var ea = -Math.PI / 2 + Math.PI * 2 * deskClock.frac; x.fillStyle = '#FFF8E8'; x.strokeStyle = '#8E3530'; x.lineWidth = 4; x.beginPath(); x.arc(cx + Math.cos(ea) * ringR, cy + Math.sin(ea) * ringR, 9, 0, 7); x.fill(); x.stroke(); }
+      x.fillStyle = '#1C1511'; x.beginPath(); if (x.roundRect) x.roundRect(cx - 104, cy - 44, 208, 88, 16); else x.rect(cx - 104, cy - 44, 208, 88); x.fill();
+      x.strokeStyle = '#B88A3E'; x.lineWidth = 3; x.stroke();
+      x.fillStyle = '#EBD3A0'; x.font = '600 58px ' + serif; x.fillText(deskClock.time, cx, cy + 4);
+      x.fillStyle = '#8A6A45'; x.font = '800 20px ' + sans; x.fillText(deskClock.label, cx, cy - 66);
+      if (deskClock.sub) { x.fillStyle = '#5A4636'; x.font = '700 22px ' + sans; x.fillText(deskClock.sub, cx, cy + 78); }
+      if (deskClock.running) { x.fillStyle = '#E0883A'; x.beginPath(); x.arc(cx + 88, cy - 30, 6, 0, 7); x.fill(); }
+    });
+    tag = 'desk';
+    var dc = new THREE.Group(); dc.position.set(DX - .12, DY, DZ + .4); dc.rotation.y = .12; scene.add(dc);
+    var brs2 = mat('#B88A3E', { metalness: .92, roughness: .28, env: 1.4 }), enamelM = mat('#8E3530', { roughness: .22, metalness: .1, env: 1.1 });
+    cyl(.085, .1, .018, brs2, 0, .009, 0, 40, dc); box(.05, .09, .03, brs2, 0, .06, -.02, dc, true, .01);
+    [-.06, .06].forEach(function (fx) { cyl(.012, .016, .012, brs2, fx, .006, .045, 12, dc); });
+    var bodyG = new THREE.Group(); bodyG.position.set(0, .165, 0); bodyG.rotation.x = -.18; dc.add(bodyG);
+    var drum = new THREE.Mesh(new THREE.CylinderGeometry(.098, .098, .06, 48), brs2); drum.rotation.x = Math.PI / 2; add(drum, bodyG, true);
+    var ering = new THREE.Mesh(new THREE.TorusGeometry(.1, .012, 14, 56), enamelM); ering.position.z = .028; add(ering, bodyG, false);
+    var bezel = new THREE.Mesh(new THREE.TorusGeometry(.088, .006, 12, 56), brs2); bezel.position.z = .036; add(bezel, bodyG, false);
+    var dial = new THREE.Mesh(new THREE.CircleGeometry(.087, 56), new THREE.MeshBasicMaterial({ map: dcTex, toneMapped: false })); dial.position.z = .031; add(dial, bodyG, false);
+    var dglass = new THREE.Mesh(new THREE.CircleGeometry(.087, 56), new THREE.MeshStandardMaterial({ color: '#FFFFFF', transparent: true, opacity: .07, roughness: .02, envMapIntensity: 2.4, depthWrite: false })); dglass.position.z = .04; bodyG.add(dglass);
+    var bellR = new THREE.Mesh(new THREE.TorusGeometry(.03, .005, 8, 24), brs2); bellR.position.set(0, .115, 0); add(bellR, bodyG, false); cyl(.01, .012, .02, brs2, 0, .104, 0, 14, bodyG);
+    tag = null;
 
     /* ---------- cosy desk dressing: brass lamp, flowers, candle, bunny, stars, bows, titled books ---------- */
     var candles = [];
@@ -787,17 +867,21 @@ import './three-setup.js';
       var face = new THREE.MeshStandardMaterial({ map: titleSpineTex(title, col, '#E6C77C'), roughness: .5, envMapIntensity: .5 });
       var mesh = new THREE.Mesh(geoBox(w, h, d, .03), [edge, edge, edge, edge, face, pages]); mesh.position.set(x, y, z); mesh.rotation.y = rotY; return add(mesh, null, true);
     }
+    tag = 'reading';
     titledBook('Dream Big', '#2A3550', .32, .07, .23, DX + .38, DY + .035, DZ - .12, .06);
     titledBook('Study Hard', '#2F3A55', .30, .07, .22, DX + .37, DY + .105, DZ - .12, -.05);
     titledBook('Be Happy \u2661', '#33503F', .29, .07, .21, DX + .39, DY + .175, DZ - .12, .08);
+    var rbn = mat('#E3A9B1', { roughness: .32, env: .7 });
+    box(.02, .212, .004, rbn, DX + .5, DY + .106, DZ - .005, null, false, .001).rotation.y = .03; bow(null, DX + .5, DY + .13, DZ + .0, .9, .03);
+    tag = null;
     flowerJar(DX - .5, DY, DZ - .1, 1.1);
-    candleJar(DX - .3, DY, DZ + .1);
-    bow(null, MX, DY + .075, MZ + .052, 1.1, 0);
+    tag = 'candle'; candleJar(DX - .3, DY, DZ + .1); tag = null;
+    tag = 'mug'; bow(null, MX, DY + .075, MZ + .052, 1.1, 0); tag = null;
     /* a leather writing surface, ink and quill, letters with a wax seal, a magnifier, a pocket watch, a pen cup, a bud vase with a ring dish */
-    var leatherTex = canvasTex(256, 192, function (x, w, h) {
+    var leatherTex = canvasTex(1024, 768, function (x, w, h) {
       x.fillStyle = '#4E1F26'; x.fillRect(0, 0, w, h);
-      for (var k = 0; k < 2200; k++) { x.fillStyle = k % 2 ? 'rgba(0,0,0,.1)' : 'rgba(255,200,170,.06)'; x.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 2, 1 + Math.random() * 2); }
-      x.strokeStyle = '#C9A55C'; x.lineWidth = 2; x.strokeRect(9, 9, w - 18, h - 18); x.lineWidth = 1; x.strokeRect(14, 14, w - 28, h - 28);
+      for (var k = 0; k < 40000; k++) { x.fillStyle = k % 2 ? 'rgba(0,0,0,.08)' : 'rgba(255,200,170,.05)'; x.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random(), 1 + Math.random()); }
+      x.strokeStyle = '#C9A55C'; x.lineWidth = 6; x.strokeRect(34, 34, w - 68, h - 68); x.lineWidth = 3; x.strokeRect(52, 52, w - 104, h - 104);
     });
     box(1.0, .004, .74, new THREE.MeshStandardMaterial({ map: leatherTex, bumpMap: leatherTex, bumpScale: .12, roughness: .55, envMapIntensity: .5 }), DX - .02, DY + .003, DZ + .66, null, true, .002);
     (function () {
@@ -1272,7 +1356,12 @@ import './three-setup.js';
     var baseFov = 60, fovT = 60;
     camera.position.copy(SEAT);
     var HOT = {
-      desk:    { label: 'Your table',       at: [-.15, 1.1, .0],    target: [0, .85, -.1],      from: [.6, 1.85, 1.6],   w: 1.8, h: 1.1 },
+      desk:    { label: 'Pomodoro timer',   at: [DX - .12, DY + .36, DZ + .4], target: [DX - .12, DY + .2, DZ + .4], from: [.45, 1.6, 1.5], w: .75, h: .6 },
+      notebook: { label: 'Notebook',        at: [NBX, DY + .17, NBZ], target: [NBX, DY + .03, NBZ], from: [.4, 1.7, 1.5], w: .95, h: .75 },
+      reading: { label: 'Reading list',     at: [DX + .38, DY + .34, DZ - .12], target: [DX + .38, DY + .1, DZ - .12], from: [.9, 1.7, 1.2], w: .8, h: .6 },
+      lamp:    { label: 'Desk lamp',        at: [al.x, al.y + .22, al.z] },
+      candle:  { label: 'Candle',           at: [DX - .3, DY + .22, DZ + .1] },
+      mug:     { label: 'Tea break',        at: [MX, DY + .26, MZ] },
       cat:     { label: 'Mochi',            at: [.15, 1.22, -1.33], target: [.05, .95, -1.33],  from: [.5, 1.5, .3],     w: 1.1, h: .7 },
       shelf:   { label: 'Your study shelf', at: [1.85, 2.85, 1.0],  target: [2.0, 1.25, 1.0],   from: [.2, 1.5, .9],     w: 2.2, h: 2.7 },
       library: { label: 'The stacks',       at: [2.75, 2.85, -4.3], target: [2.75, 1.1, -4.3],  from: [.4, 1.5, -2.4],   w: 3.0, h: 2.4 },
@@ -1359,6 +1448,7 @@ import './three-setup.js';
     /* ---------- loop ---------- */
     var clk = new THREE.Clock(), reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var focusing = false, rainLevel = 0, playing = false, catHop = 0, petT = 0, tmpV = new THREE.Vector3(), tmpC = new THREE.Color();
+    var lampOnB = true, candleOnB = true, lampK = 1, candleK = 1;
     function ease(u) { return u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; }
     function loop() {
       requestAnimationFrame(loop);
@@ -1384,11 +1474,13 @@ import './three-setup.js';
       skyMat.uniforms.uBright.value = cur.skyB; skyMat.uniforms.uTime.value = reduce ? 0 : t; skyMat.uniforms.uRain.value += (rainLevel - skyMat.uniforms.uRain.value) * (1 - Math.exp(-dt * 2.5));
       ceil.material.color.setScalar(.3 + cur.hemi * .75);
       var lampI = Math.max(cur.lamp, focusing ? 1.6 : 0) * (focusing ? 1.2 : 1);
-      lampLight.intensity = lampI * .45; deskSpot.intensity = lampI * 1.3;
+      lampK += ((lampOnB ? 1 : 0) - lampK) * (1 - Math.exp(-dt * 8)); lampLight.intensity = lampI * .45 * lampK; deskSpot.intensity = lampI * 1.3 * lampK;
       envMats.forEach(function (m) { m.envMapIntensity = (m.userData.env == null ? .3 : m.userData.env) * (.4 + cur.hemi * .6); });
       lampBulbs.forEach(function (m) { m.emissiveIntensity = 1.0 + cur.lamp * 1.4; }); shadeMats.forEach(function (m) { m.emissiveIntensity = .12 + cur.lamp * .25; });
+      armBulb.emissiveIntensity = armBulb.emissiveIntensity * lampK + .03; armBulb.color.setRGB(.45 + .55 * lampK, .4 + .5 * lampK, .32 + .36 * lampK); armGlow.material.opacity = .32 * lampK;
       var flick = reduce ? 1 : .85 + Math.sin(t * 23) * .06 + Math.sin(t * 37) * .05;
       candles.forEach(function (c) { var f = reduce ? 1 : .8 + Math.sin(t * 9 + c.ph) * .12 + Math.sin(t * 17 + c.ph * 2) * .08; c.light.intensity = (.25 + cur.lamp * .25) * f; c.fl.scale.set(.8 * f, 1.9 * (.9 + (f - .8) * .8), .8 * f); c.glow.material.opacity = Math.min(.9, .55 * f + cur.lamp * .1); });
+      candleK += ((candleOnB ? 1 : 0) - candleK) * (1 - Math.exp(-dt * 7)); candles.forEach(function (c) { c.light.intensity *= candleK; c.glow.material.opacity *= candleK; c.fl.visible = candleK > .03; c.fl.scale.multiplyScalar(Math.max(candleK, .01)); });
       lanterns.forEach(function (l) { if (!reduce) { l.g.rotation.y = Math.sin(t * .5 + l.ph) * .5; l.g.position.y = l.y + Math.sin(t * .8 + l.ph) * .035; } });
       shafts.forEach(function (m, i) { m.material.color.copy(cur.sun); m.material.opacity = (.02 + cur.patchO * .26) * (reduce ? 1 : .85 + Math.sin(t * .35 + i * 2) * .15); });
       chands.forEach(function (c) { c.light.intensity = cur.chand * 1.3 * dim; c.glow.material.opacity = Math.min(.6, .12 + cur.chand * .2); if (!reduce) c.group.position.y = 4.35 + Math.sin(t * .7 + c.ph) * .04; });
@@ -1442,7 +1534,9 @@ import './three-setup.js';
       setTod: setTod, focus: focus, home: home,
       setFocus: function (v) { focusing = v; }, setRain: function (v) { rainLevel = v; }, setPlaying: function (v) { playing = v; },
       addBook: function (b) { placeBook(b, true); },
-      setDeskClock: function (time, color, running) { if (deskClock.time === time && deskClock.color === color && deskClock.running === running) return; deskClock.time = time; deskClock.color = color; deskClock.running = running; redraw(dcTex); },
+      setDeskClock: function (time, color, running, frac, label, sub) { frac = frac == null ? 1 : frac; if (deskClock.time === time && deskClock.color === color && deskClock.running === running && deskClock.frac === frac && deskClock.label === label && deskClock.sub === sub) return; deskClock.time = time; deskClock.color = color; deskClock.running = running; deskClock.frac = frac; deskClock.label = label || 'FOCUS'; deskClock.sub = sub || ''; redraw(dcTex); },
+      toggleLamp: function () { lampOnB = !lampOnB; return lampOnB; }, toggleCandle: function () { candleOnB = !candleOnB; return candleOnB; },
+      setNotebook: function (title, text, date, page, total) { NB.title = title || ''; NB.empty = !(title || text); NB.lines = (title ? [title] : []).concat(text ? nbWrap(text, 512 - 100) : []); NB.date = date || ''; NB.page = page || 1; NB.total = total || 1; redrawNB(); },
       pet: function () { petT = 1.6; catHop = 1; }, hello: function () { catHop = 1; }
     };
     return api;
@@ -1450,16 +1544,21 @@ import './three-setup.js';
 
   /* ---------- cards ---------- */
   var CARDS = {
-    desk: ['Your reading table', 'Settle in'], music: ['Gramophone', 'Ambience'], chair: ['Fireside chair', 'Currently reading'],
+    desk: ['Pomodoro timer', 'Settle in'], notebook: ['Notebook', 'Write something down'], reading: ['Reading list', 'Currently reading'], music: ['Gramophone', 'Ambience'], chair: ['Fireside chair', 'Currently reading'],
     library: ['The stacks', 'Books you have read'], shelf: ['Your study shelf', 'Your study sessions'], board: ['Card catalog', 'October'],
     window: ['Arched window', 'Time of day'], cat: ['Mochi, the library cat', 'Hello, Mochi']
   };
   var card = $('#card'), openId = null, mobileMQ = window.matchMedia('(max-width: 640px)');
+  var SECT = { reading: 'chair' };
   function openCard(id) {
+    if (id === 'lamp') { if (room) { var lo = room.toggleLamp(); toast(lo ? 'Desk lamp on' : 'Desk lamp off'); } return; }
+    if (id === 'candle') { if (room) { var co = room.toggleCandle(); toast(co ? 'Candle lit' : 'Candle blown out'); } return; }
+    if (id === 'mug') { teaBreak(); id = 'desk'; }
     if (!CARDS[id]) return;
     openId = id;
     $('#cardKicker').textContent = CARDS[id][0]; $('#cardTitle').textContent = CARDS[id][1];
-    document.querySelectorAll('.sect').forEach(function (s) { s.hidden = s.dataset.sect !== id; });
+    document.querySelectorAll('.sect').forEach(function (s) { s.hidden = s.dataset.sect !== (SECT[id] || id); });
+    if (id === 'notebook') setTimeout(function () { var t = $('#nbText'); if (t && openId === 'notebook') t.focus(); }, 520);
     card.hidden = false;
     requestAnimationFrame(function () { card.classList.add('open'); });
     $('#spots').classList.add('away'); $('#hint').style.opacity = 0;
@@ -1510,7 +1609,7 @@ import './three-setup.js';
     $('#timeSub').textContent = running ? (minutes === 5 ? 'stretch, sip some tea' : 'Mochi is keeping you company') : started ? 'paused' : 'ready when you are';
     $('#timerPill').hidden = !running && !started;
     $('#pillTime').textContent = fmt(remaining); $('#pillSub').textContent = minutes === 5 ? 'Break' : subject.name; $('#pillDot').style.background = subject.c[0];
-    if (room) { room.setFocus(running && minutes !== 5); room.setDeskClock(fmt(remaining), subject.c[0], running); }
+    if (room) { room.setFocus(running && minutes !== 5); room.setDeskClock(fmt(remaining), minutes === 5 ? '#C98E94' : subject.c[0], running, remaining / (minutes * 60), minutes === 5 ? 'BREAK' : running ? 'FOCUS' : started ? 'PAUSED' : 'READY', minutes === 5 ? 'tea time' : subject.name); }
   }
   function finish() {
     clearInterval(tick); running = false;
@@ -1587,4 +1686,47 @@ import './three-setup.js';
   var purrs = ['Mochi purrs like a tiny engine', 'Mochi does a slow blink at you', 'Mochi rolls over for belly rubs', 'Mochi kneads the rug happily'];
   $('#petBtn').onclick = function () { if (room) room.pet(); toast(purrs[Math.floor(Math.random() * purrs.length)]); };
   $('#wakeBtn').onclick = function () { if (room) room.hello(); toast('Mochi lifts her head and mrrps'); };
+  /* ---------- tea break (the mug) ---------- */
+  function teaBreak() {
+    if (running) { toast('Pause your session first to take a tea break'); return; }
+    minutes = 5; remaining = 300; render();
+    document.querySelectorAll('#lengths .chip').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.min === '5'); });
+    toast('Tea break: five quiet minutes');
+  }
+
+  /* ---------- notebook (saved in this browser) ---------- */
+  var NBKEY = 'nook.notebook.v1', nb = { pages: [], cur: 0 }, nbTimer = null, delArmed = null;
+  function newPage() { return { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), title: '', text: '', created: Date.now() }; }
+  try { var rawNb = JSON.parse(localStorage.getItem(NBKEY) || 'null'); if (rawNb && Array.isArray(rawNb.pages) && rawNb.pages.length) { nb = rawNb; nb.cur = Math.min(Math.max(0, nb.cur | 0), nb.pages.length - 1); } } catch (e) {}
+  if (!nb.pages.length) nb.pages.push(newPage());
+  function saveNb() { try { localStorage.setItem(NBKEY, JSON.stringify(nb)); $('#nbSaved').textContent = 'Saved'; } catch (e) { $('#nbSaved').textContent = 'Could not save here'; } }
+  function nbDate(p) { return new Date(p.created).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }); }
+  function words(t) { var m = t.trim().match(/\S+/g); return m ? m.length : 0; }
+  function renderNb() {
+    var p = nb.pages[nb.cur];
+    $('#nbTitle').value = p.title; $('#nbText').value = p.text;
+    $('#nbPos').textContent = 'Page ' + (nb.cur + 1) + ' of ' + nb.pages.length; $('#nbDate').textContent = nbDate(p);
+    $('#nbPrev').disabled = nb.cur === 0; $('#nbNext').disabled = nb.cur === nb.pages.length - 1;
+    $('#nbCount').textContent = words(p.text) + (words(p.text) === 1 ? ' word' : ' words');
+    $('#nbDelete').textContent = nb.pages.length === 1 && !p.text && !p.title ? 'Nothing to clear' : nb.pages.length === 1 ? 'Clear page' : 'Delete page'; delArmed = null;
+    if (room) room.setNotebook(p.title, p.text, nbDate(p), nb.cur + 1, nb.pages.length);
+  }
+  function nbEdited() {
+    var p = nb.pages[nb.cur]; p.title = $('#nbTitle').value; p.text = $('#nbText').value;
+    $('#nbCount').textContent = words(p.text) + (words(p.text) === 1 ? ' word' : ' words'); $('#nbSaved').textContent = 'Saving...';
+    if (room) room.setNotebook(p.title, p.text, nbDate(p), nb.cur + 1, nb.pages.length);
+    clearTimeout(nbTimer); nbTimer = setTimeout(saveNb, 350);
+  }
+  $('#nbText').oninput = nbEdited; $('#nbTitle').oninput = nbEdited;
+  $('#nbPrev').onclick = function () { if (nb.cur > 0) { nb.cur--; saveNb(); renderNb(); } };
+  $('#nbNext').onclick = function () { if (nb.cur < nb.pages.length - 1) { nb.cur++; saveNb(); renderNb(); } };
+  $('#nbNew').onclick = function () { var last = nb.pages[nb.pages.length - 1]; if (!last.text && !last.title) { nb.cur = nb.pages.length - 1; renderNb(); $('#nbText').focus(); return; } nb.pages.push(newPage()); nb.cur = nb.pages.length - 1; saveNb(); renderNb(); $('#nbText').focus(); };
+  $('#nbDelete').onclick = function () {
+    var p = nb.pages[nb.cur]; if (nb.pages.length === 1 && !p.text && !p.title) return;
+    if (delArmed !== p.id) { delArmed = p.id; $('#nbDelete').textContent = 'Tap again to confirm'; setTimeout(function () { if (delArmed === p.id) { delArmed = null; renderNb(); } }, 3000); return; }
+    if (nb.pages.length === 1) { p.title = ''; p.text = ''; } else { nb.pages.splice(nb.cur, 1); nb.cur = Math.min(nb.cur, nb.pages.length - 1); }
+    saveNb(); renderNb(); toast('Page removed');
+  };
+  renderNb();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { renderNb(); render(); });
 })();

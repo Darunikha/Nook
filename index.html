@@ -8,7 +8,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Nunito:wght@400;600;700;800&family=Fredoka:wght@500;600&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Nunito:wght@400;600;700;800&family=Fredoka:wght@500;600&family=Caveat:wght@500;700&display=swap">
     <title>Nook Library</title>
   </head>
   <body>
@@ -37,6 +37,19 @@
         <div class="progress"><span id="prog" style="width:0%"></span></div>
         <div class="row"><button class="btn primary" id="startBtn">Start focus</button><button class="btn" id="resetBtn">Reset</button></div>
         <button class="link" id="skipBtn">Preview: finish this session now</button>
+      </div>
+
+      <div class="sect" data-sect="notebook" hidden>
+        <div class="nb-bar">
+          <button class="chip" id="nbPrev" aria-label="Previous page">&lsaquo;</button>
+          <span id="nbPos">Page 1 of 1</span>
+          <button class="chip" id="nbNext" aria-label="Next page">&rsaquo;</button>
+          <button class="chip" id="nbNew">+ New page</button>
+        </div>
+        <p class="nb-date" id="nbDate"></p>
+        <input id="nbTitle" class="nb-title" type="text" placeholder="Title (optional)" maxlength="60" aria-label="Page title" autocomplete="off">
+        <textarea id="nbText" class="nb-text" placeholder="Write your thoughts, goals or notes. Everything you write appears on the notebook pages on your desk." maxlength="4000" aria-label="Notebook page"></textarea>
+        <div class="nb-foot"><small id="nbCount">0 words</small><small id="nbSaved">Saved</small><button class="btn" id="nbDelete">Delete page</button></div>
       </div>
 
       <div class="sect" data-sect="music" hidden>
