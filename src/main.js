@@ -345,8 +345,8 @@ import './three-setup.js';
       if (!FL[key]) { var m = new THREE.InstancedMesh(geo || flSphere, new THREE.MeshStandardMaterial({ color: color, roughness: rough || .7 }), 2600); m.castShadow = false; m.receiveShadow = false; m.count = 0; m.frustumCulled = false; m.userData.noPick = true; scene.add(m); FL[key] = m; }
       return FL[key];
     }
-    function flPuff(g, key, color, x, y, z, sx, sy, sz, ry) {                         // an instanced blob of petals/leaf, in g's local space
-      var m = flMesh(key, color); tmpP.set(x, y, z); tmpS.set(sx, sy, sz); tmpQ.setFromEuler(new THREE.Euler(0, ry || 0, 0));
+    function flPuff(g, key, color, x, y, z, sx, sy, sz, ry, rx) {                         // an instanced blob of petals/leaf, in g's local space
+      var m = flMesh(key, color); tmpP.set(x, y, z); tmpS.set(sx, sy, sz); tmpQ.setFromEuler(new THREE.Euler(rx || 0, ry || 0, 0, 'YXZ'));
       tmpM.compose(tmpP, tmpQ, tmpS).premultiply(g.matrixWorld); m.setMatrixAt(m.count++, tmpM); m.instanceMatrix.needsUpdate = true;
     }
     function flStemTo(g, key, color, a, b, r) {
@@ -368,10 +368,10 @@ import './three-setup.js';
         if (kind === 'lavender') { for (var q = 0; q < 6; q++) flPuff(g, 'lav', '#8D7AB4', tip.x, tip.y - q * .012, tip.z, .006, .009, .006, 0); }
         else if (kind === 'dried') { flPuff(g, 'plume', '#E8D9BC', tip.x, tip.y + .02, tip.z, .009, .045, .009, 0); flPuff(g, 'plume2', '#CDB48C', tip.x, tip.y + .05, tip.z, .006, .03, .006, 0); }
         else {
-          var B = FBLOOM[kind === 'bud' ? 'rose' : kind], r0 = B[1] * (.85 + rnd() * .3);
-          flPuff(g, 'b' + kind + '0', B[0][0], tip.x, tip.y, tip.z, r0, r0 * .78, r0, a);
-          flPuff(g, 'b' + kind + '1', B[0][1], tip.x, tip.y + r0 * .3, tip.z, r0 * .72, r0 * .6, r0 * .72, a);
-          flPuff(g, 'b' + kind + '2', B[0][2], tip.x, tip.y + r0 * .55, tip.z, r0 * .4, r0 * .4, r0 * .4, a);
+          var B = FBLOOM[kind === 'bud' ? 'rose' : kind], r0 = B[1] * (.85 + rnd() * .3), np = kind === 'peony' ? 9 : kind === 'cream' ? 7 : 6, pk = 'b' + kind;
+          for (var pp = 0; pp < np; pp++) { var pa = pp / np * 6.283 + rnd() * .35; flPuff(g, pk + '0', B[0][0], tip.x + Math.cos(pa) * r0 * .6, tip.y, tip.z + Math.sin(pa) * r0 * .6, r0 * .5, r0 * .16, r0 * .68, Math.PI / 2 - pa, -.5); }      // outer petals
+          for (var pq = 0; pq < np - 2; pq++) { var qa = pq / (np - 2) * 6.283 + rnd() * .5; flPuff(g, pk + '1', B[0][1], tip.x + Math.cos(qa) * r0 * .3, tip.y + r0 * .22, tip.z + Math.sin(qa) * r0 * .3, r0 * .36, r0 * .14, r0 * .5, Math.PI / 2 - qa, -.95); }   // inner petals
+          flPuff(g, pk + '2', B[0][2], tip.x, tip.y + r0 * .26, tip.z, r0 * .26, r0 * .26, r0 * .26, 0);                                                                                                                                                                  // heart
           if (i % 2) flPuff(g, 'leaf', '#3F6A3D', tip.x * .5, top + .06 + (i % 4) * .035, tip.z * .5, .045, .008, .018, a);
         }
       }
@@ -672,7 +672,7 @@ import './three-setup.js';
     tag = null;
     var DX = 0, DZ = -.55, DY = .8;
     deskWood.map.repeat.set(2, 4); deskWood.bumpMap.repeat.set(2, 4);
-    table(DX, DZ, 2.4, 1.2, { drawers: true, wood: deskWood });
+    table(DX, DZ - .1, 2.2, 1.12, { drawers: true, wood: deskWood });
     chair(-.85, DZ - .55, Math.PI / 2, mint); chair(.85, DZ - .55, -Math.PI / 2, rose);
     tag = 'lamp';
     var al = armLamp(DX + .47, DY, DZ + .22, Math.PI);
@@ -680,7 +680,8 @@ import './three-setup.js';
     tag = null;
     var lampLight = new THREE.PointLight('#FFC98A', 1, 5, 2); lampLight.position.set(al.x, al.y, al.z); scene.add(lampLight);
     var deskSpot = new THREE.SpotLight('#FFD39A', 1, 4, 1.0, .85, 1.6); deskSpot.position.set(al.x, al.y, al.z); deskSpot.target.position.set(DX - .05, DY, DZ + .6); deskSpot.castShadow = true; deskSpot.shadow.mapSize.set(1024, 1024); deskSpot.shadow.bias = -.0006; deskSpot.shadow.radius = 5; scene.add(deskSpot); scene.add(deskSpot.target);
-    /* the notebook: a leather-bound journal. What you write in the Notebook card is handwritten onto these pages. */
+    /* the notebook: the focal point of the desk. A leather-bound journal with curved, deckle-toned pages; what you write in the
+       Notebook card is handwritten onto them. */
     tag = 'notebook';
     var NB = { title: '', lines: [], date: '', page: 1, total: 1, empty: true };
     var nbCtx = document.createElement('canvas').getContext('2d');
@@ -694,48 +695,61 @@ import './three-setup.js';
       return out;
     }
     function nbDraw(side) {
-      return function (x, w, h) {
-        x.fillStyle = '#EFE3CA'; x.fillRect(0, 0, w, h);
-        for (var k = 0; k < 2600; k++) { x.fillStyle = 'rgba(120,90,50,' + (.012 + (k % 5) * .005) + ')'; x.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+      return function (x, W, H) {
+        var w = 512, h = 720, sd = side ? 71 : 29; function r() { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; }
+        x.save(); x.scale(W / w, H / h);
+        x.fillStyle = '#F1E6CE'; x.fillRect(0, 0, w, h);
+        var vg = x.createRadialGradient(w / 2, h / 2, h * .25, w / 2, h / 2, h * .75); vg.addColorStop(0, 'rgba(150,110,60,0)'); vg.addColorStop(1, 'rgba(150,110,60,.2)'); x.fillStyle = vg; x.fillRect(0, 0, w, h);   // gently aged edges
+        for (var f = 0; f < 1400; f++) { x.strokeStyle = 'rgba(' + (r() < .5 ? '110,84,48' : '255,250,235') + ',' + (.03 + r() * .05) + ')'; x.lineWidth = .8; var fx = r() * w, fy = r() * h, fl = 2 + r() * 7, fa = r() * 6.283; x.beginPath(); x.moveTo(fx, fy); x.lineTo(fx + Math.cos(fa) * fl, fy + Math.sin(fa) * fl); x.stroke(); }   // paper fibres
+        for (var fo = 0; fo < 4; fo++) { var ox = r() * w, oy = r() * h, og = x.createRadialGradient(ox, oy, 0, ox, oy, 14 + r() * 22); og.addColorStop(0, 'rgba(170,120,60,.10)'); og.addColorStop(1, 'rgba(170,120,60,0)'); x.fillStyle = og; x.fillRect(ox - 40, oy - 40, 80, 80); }   // faint foxing
         var LH = 34, top = 78, left = side ? 40 : 54;
-        x.strokeStyle = 'rgba(70,90,120,.28)'; x.lineWidth = 1.4; for (var ln = 0; ln <= NBPER; ln++) { x.beginPath(); x.moveTo(26, top + ln * LH); x.lineTo(w - 22, top + ln * LH); x.stroke(); }
-        x.strokeStyle = 'rgba(190,80,90,.32)'; x.beginPath(); x.moveTo(side ? w - 36 : 40, 40); x.lineTo(side ? w - 36 : 40, h - 30); x.stroke();
+        x.strokeStyle = 'rgba(70,90,120,.26)'; x.lineWidth = 1.3; for (var ln = 0; ln <= NBPER; ln++) { x.beginPath(); x.moveTo(26, top + ln * LH); x.lineTo(w - 22, top + ln * LH); x.stroke(); }
+        x.strokeStyle = 'rgba(190,80,90,.3)'; x.beginPath(); x.moveTo(side ? w - 36 : 40, 36); x.lineTo(side ? w - 36 : 40, h - 30); x.stroke();
         var lines = NB.lines.slice(side * NBPER, side * NBPER + NBPER);
-        x.fillStyle = '#2B2A44'; x.textBaseline = 'alphabetic';
+        x.fillStyle = '#2A2942'; x.textBaseline = 'alphabetic';
         lines.forEach(function (t, i) { var isTitle = !side && i === 0 && NB.title; x.font = isTitle ? '700 38px Caveat, "Segoe Script", cursive' : NBFONT; x.fillText(t, left, top + (i + 1) * LH - 7); });
-        if (!side) { x.font = '22px Caveat, "Segoe Script", cursive'; x.fillStyle = 'rgba(60,45,40,.65)'; x.fillText(NB.date, left, 50); }
-        if (NB.empty && !side) { x.font = '28px Caveat, "Segoe Script", cursive'; x.fillStyle = 'rgba(60,45,40,.32)'; x.fillText('click the notebook to start writing...', left, top + LH - 7); }
-        x.font = '20px Caveat, cursive'; x.fillStyle = 'rgba(60,45,40,.55)'; x.textAlign = 'center'; x.fillText(String(NB.page * 2 - 1 + side), w / 2, h - 14); x.textAlign = 'left';
-        var gu = side ? x.createLinearGradient(0, 0, w * .2, 0) : x.createLinearGradient(w, 0, w * .8, 0); gu.addColorStop(0, 'rgba(50,30,15,.38)'); gu.addColorStop(1, 'rgba(50,30,15,0)'); x.fillStyle = gu; x.fillRect(0, 0, w, h);
+        if (!side) { x.font = '22px Caveat, "Segoe Script", cursive'; x.fillStyle = 'rgba(60,45,40,.62)'; x.fillText(NB.date, left, 48); }
+        if (NB.empty && !side) { x.font = '28px Caveat, "Segoe Script", cursive'; x.fillStyle = 'rgba(60,45,40,.3)'; x.fillText('click the notebook to start writing...', left, top + LH - 7); }
+        x.font = '20px Caveat, cursive'; x.fillStyle = 'rgba(60,45,40,.5)'; x.textAlign = 'center'; x.fillText(String(NB.page * 2 - 1 + side), w / 2, h - 14); x.textAlign = 'left';
+        var gu = side ? x.createLinearGradient(0, 0, w * .22, 0) : x.createLinearGradient(w, 0, w * .78, 0); gu.addColorStop(0, 'rgba(45,25,12,.45)'); gu.addColorStop(1, 'rgba(45,25,12,0)'); x.fillStyle = gu; x.fillRect(0, 0, w, h);
+        x.restore();
       };
     }
-    var pageTexL = canvasTex(512, 720, nbDraw(0)), pageTexR = canvasTex(512, 720, nbDraw(1));
+    var pageTexL = canvasTex(768, 1080, nbDraw(0)), pageTexR = canvasTex(768, 1080, nbDraw(1));
     function redrawNB() { redraw(pageTexL); redraw(pageTexR); }
-    var pageML = new THREE.MeshStandardMaterial({ map: pageTexL, color: '#BDB198', roughness: .92 }), pageMR = new THREE.MeshStandardMaterial({ map: pageTexR, color: '#BDB198', roughness: .92 });
-    var pageEdge = new THREE.MeshStandardMaterial({ map: canvasTex(16, 64, function (x, w, h) { x.fillStyle = '#E9DDC2'; x.fillRect(0, 0, w, h); for (var q = 0; q < h; q += 2) { x.fillStyle = 'rgba(120,95,55,' + (.12 + (q % 6) * .02) + ')'; x.fillRect(0, q, w, 1); } }), roughness: .95 });
+    var pageML = new THREE.MeshStandardMaterial({ map: pageTexL, color: '#C2B69C', roughness: .94 }), pageMR = new THREE.MeshStandardMaterial({ map: pageTexR, color: '#C2B69C', roughness: .94 });
+    var edgeTex = canvasTex(16, 64, function (x, w, h) { x.fillStyle = '#E9DDC2'; x.fillRect(0, 0, w, h); for (var q = 0; q < h; q += 2) { x.fillStyle = 'rgba(120,95,55,' + (.14 + (q % 6) * .02) + ')'; x.fillRect(0, q, w, 1); } });
+    var pageEdge = new THREE.MeshStandardMaterial({ map: edgeTex, color: '#B7AC93', roughness: .95 });
+    var skirtTex = edgeTex.clone(); skirtTex.wrapS = skirtTex.wrapT = THREE.RepeatWrapping; skirtTex.repeat.set(1, 60); skirtTex.needsUpdate = true;
+    var skirtM = new THREE.MeshStandardMaterial({ map: skirtTex, color: '#B7AC93', roughness: .95 });
     var coverTex = canvasTex(512, 380, function (x, w, h) {
       x.fillStyle = '#4B1D23'; x.fillRect(0, 0, w, h);
       for (var k = 0; k < 14000; k++) { x.fillStyle = k % 2 ? 'rgba(0,0,0,.1)' : 'rgba(255,200,170,.05)'; x.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random(), 1 + Math.random()); }
       x.strokeStyle = '#C9A55C'; x.lineWidth = 4; x.strokeRect(10, 10, w - 20, h - 20); x.lineWidth = 2; x.strokeRect(20, 20, w - 40, h - 40);
     });
     var leatherSide = mat('#4B1D23', { roughness: .55, env: .6 }), coverTop = new THREE.MeshStandardMaterial({ map: coverTex, bumpMap: coverTex, bumpScale: .3, roughness: .55, envMapIntensity: .6 });
-    var NBX = DX - .08, NBZ = DZ + .84;
-    box(.62, .014, .44, [leatherSide, leatherSide, coverTop, leatherSide, leatherSide, leatherSide], NBX, DY + .007, NBZ, null, true, .01);
-    var pbL = box(.265, .03, .385, [pageEdge, pageEdge, pageML, pageEdge, pageEdge, pageEdge], NBX - .137, DY + .03, NBZ, null, true, .006); pbL.rotation.z = .05;
-    var pbR = box(.265, .03, .385, [pageEdge, pageEdge, pageMR, pageEdge, pageEdge, pageEdge], NBX + .137, DY + .03, NBZ, null, true, .006); pbR.rotation.z = -.05;
-    box(.014, .036, .39, mat('#2E1217', { roughness: .6 }), NBX, DY + .022, NBZ, null, false, .004);
-    var rib = mat('#E3A9B1', { roughness: .35, env: .7 });
-    box(.011, .002, .3, rib, NBX + .03, DY + .0465, NBZ + .06, null, false, .001).rotation.z = -.05;
-    box(.011, .002, .07, rib, NBX + .03, DY + .036, NBZ + .24, null, false, .001).rotation.x = .6; box(.011, .004, .006, giltM, NBX + .03, DY + .0285, NBZ + .272, null, false, .001);
-    var pen = new THREE.Group(); pen.position.set(DX + .28, DY + .036, DZ + .9); pen.rotation.y = .75; scene.add(pen);
-    var lac = mat('#15151A', { roughness: .18, metalness: .3, env: 1.4 });
-    cyl(.0075, .0075, .11, lac, 0, 0, 0, 16, pen).rotation.z = Math.PI / 2; cyl(.0082, .0082, .006, brassM, .04, 0, 0, 16, pen).rotation.z = Math.PI / 2;
-    cyl(.0068, .0075, .045, lac, -.075, 0, 0, 16, pen).rotation.z = Math.PI / 2; cyl(.0082, .0082, .004, brassM, -.052, 0, 0, 16, pen).rotation.z = Math.PI / 2;
-    var nib = new THREE.Mesh(new THREE.ConeGeometry(.0055, .028, 12), brassM); nib.rotation.z = Math.PI / 2; nib.position.x = .069; add(nib, pen, true);
-    box(.045, .0022, .003, brassM, -.075, .0085, 0, pen, false, .001);
+    var NBX = DX, NBZ = DZ + .72, NBW = .34, NBD = .44, NBG = .01;
+    function pgY(d) { d = Math.max(0, Math.min(1, d)); return .026 * Math.pow(Math.max(0, Math.sin(Math.PI * Math.min(1, d * 1.01))), .7) * (1 - .25 * d); }
+    var nbG = new THREE.Group(); nbG.position.set(NBX, DY, NBZ); nbG.rotation.y = .035; scene.add(nbG);
+    box(.78, .016, .52, [leatherSide, leatherSide, coverTop, leatherSide, leatherSide, leatherSide], 0, .008, 0, nbG, true, .01);                        // cover board
+    [[-.39, -.26], [.39, -.26], [-.39, .26], [.39, .26]].forEach(function (c) { box(.038, .0025, .038, brassM, c[0] + (c[0] < 0 ? .015 : -.015), .0172, c[1] + (c[1] < 0 ? .015 : -.015), nbG, false, .001); });   // brass corners
+    box(.012, .0022, .52, mat('#1A1A1F', { roughness: .8 }), .372, .0171, 0, nbG, false, .001);                                                       // elastic band across the rim
+    box(.016, .03, NBD, mat('#3A2620', { roughness: .7 }), 0, .02, 0, nbG, false, .004);                                                             // dark gutter
+    [-1, 1].forEach(function (sd) {
+      box(NBW, .016, NBD, [pageEdge, pageEdge, pageEdge, pageEdge, pageEdge, pageEdge], sd * (NBW / 2 + NBG), .024, 0, nbG, true, .003);                    // block of page edges
+      var N = 30, g = new THREE.PlaneGeometry(NBW, NBD, N, 1); g.rotateX(-Math.PI / 2); var pp = g.attributes.position, prof = [];
+      for (var i = 0; i < pp.count; i++) { var u = (pp.getX(i) + NBW / 2) / NBW, d = sd < 0 ? 1 - u : u; pp.setY(i, pgY(d)); }
+      g.computeVertexNormals();
+      var sheet = new THREE.Mesh(g, sd < 0 ? pageML : pageMR); sheet.position.set(sd * (NBW / 2 + NBG), .032, 0); add(sheet, nbG, true);
+      var sh = new THREE.Shape(); sh.moveTo(-NBW / 2, 0); for (var q = 0; q <= N; q++) { var uq = q / N, dq = sd < 0 ? 1 - uq : uq; sh.lineTo(-NBW / 2 + uq * NBW, pgY(dq)); } sh.lineTo(NBW / 2, 0); sh.closePath();
+      [1, -1].forEach(function (fz) { var sk = new THREE.Mesh(new THREE.ShapeGeometry(sh), skirtM); sk.position.set(sd * (NBW / 2 + NBG), .032, fz * NBD / 2); if (fz < 0) sk.rotation.y = Math.PI; add(sk, nbG, false); });   // visible stacked page edges under the curve
+    });
+    var rib = new THREE.MeshPhysicalMaterial({ color: '#D9A2AA', roughness: .4, sheen: 1, sheenRoughness: .4, sheenColor: new THREE.Color('#FFE6E8'), side: THREE.DoubleSide });
+    box(.011, .0016, .3, rib, .075, .0495, .04, nbG, false, .0008).rotation.z = -.04;                                                               // satin ribbon marker lying in the gutter side
+    box(.011, .0016, .1, rib, .075, .036, .262, nbG, false, .0008).rotation.x = .75; box(.011, .004, .006, giltM, .075, .0305, .289, nbG, false, .001);
     tag = null;
     tag = 'mug';
-    var MX = DX - .45, MZ = DZ + .5;
+    var MX = DX - .47, MZ = DZ + .3;
     /* a proper hollow mug: glazed wall, rounded rim, handle, saucer and a latte-art top */
     var mugG = new THREE.Group(); mugG.position.set(MX, DY, MZ); scene.add(mugG);
     var glaze = mat('#ECE5D5', { roughness: .2, metalness: .04, env: .9, side: THREE.DoubleSide });
@@ -771,7 +785,7 @@ import './three-setup.js';
       if (deskClock.running) { x.fillStyle = '#E0883A'; x.beginPath(); x.arc(cx + 88, cy - 30, 6, 0, 7); x.fill(); }
     });
     tag = 'desk';
-    var dc = new THREE.Group(); dc.position.set(DX - .12, DY, DZ + .4); dc.rotation.y = .12; scene.add(dc);
+    var dc = new THREE.Group(); dc.position.set(DX - .08, DY, DZ + .12); dc.rotation.y = .12; scene.add(dc);
     var brs2 = mat('#B88A3E', { metalness: .92, roughness: .28, env: 1.4 }), enamelM = mat('#8E3530', { roughness: .22, metalness: .1, env: 1.1 });
     cyl(.085, .1, .018, brs2, 0, .009, 0, 40, dc); box(.05, .09, .03, brs2, 0, .06, -.02, dc, true, .01);
     [-.06, .06].forEach(function (fx) { cyl(.012, .016, .012, brs2, fx, .006, .045, 12, dc); });
@@ -780,20 +794,20 @@ import './three-setup.js';
     var ering = new THREE.Mesh(new THREE.TorusGeometry(.1, .012, 14, 56), enamelM); ering.position.z = .028; add(ering, bodyG, false);
     var bezel = new THREE.Mesh(new THREE.TorusGeometry(.088, .006, 12, 56), brs2); bezel.position.z = .036; add(bezel, bodyG, false);
     var dial = new THREE.Mesh(new THREE.CircleGeometry(.087, 56), new THREE.MeshBasicMaterial({ map: dcTex, toneMapped: false })); dial.position.z = .031; add(dial, bodyG, false);
-    var dglass = new THREE.Mesh(new THREE.CircleGeometry(.087, 56), new THREE.MeshStandardMaterial({ color: '#FFFFFF', transparent: true, opacity: .07, roughness: .02, envMapIntensity: 2.4, depthWrite: false })); dglass.position.z = .04; bodyG.add(dglass);
+    var dglass = new THREE.Mesh(new THREE.CircleGeometry(.087, 56), new THREE.MeshStandardMaterial({ color: '#FFFFFF', transparent: true, opacity: .07, roughness: .02, envMapIntensity: 2.4, depthWrite: false })); dglass.position.z = .04; dglass.userData.noPick = true; bodyG.add(dglass);
     var bellR = new THREE.Mesh(new THREE.TorusGeometry(.03, .005, 8, 24), brs2); bellR.position.set(0, .115, 0); add(bellR, bodyG, false); cyl(.01, .012, .02, brs2, 0, .104, 0, 14, bodyG);
     tag = null;
 
     /* ---------- cosy desk dressing: brass lamp, flowers, candle, bunny, stars, bows, titled books ---------- */
     var candles = [];
-    function bow(parent, x, y, z, sc, rotY) {
+    function bow(parent, x, y, z, sc, rotY) {                 // a small satin bow: flat looped ribbon, knot and two soft tails
       var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY || 0; g.scale.setScalar(sc || 1); (parent || scene).add(g);
-      var satin = mat('#E8B4BB', { roughness: .32, env: .7 });
+      var satin = new THREE.MeshPhysicalMaterial({ color: '#D9A2AA', roughness: .38, sheen: 1, sheenRoughness: .4, sheenColor: new THREE.Color('#FFE6E8'), side: THREE.DoubleSide });
       [-1, 1].forEach(function (sd) {
-        var lp = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), satin); lp.scale.set(.034, .022, .007); lp.position.set(sd * .033, 0, 0); lp.rotation.z = sd * .35; add(lp, g, false);
-        var tl = new THREE.Mesh(new THREE.BoxGeometry(.011, .05, .003), satin); tl.position.set(sd * .014, -.034, 0); tl.rotation.z = sd * .3; add(tl, g, false);
+        var lp = new THREE.Mesh(new THREE.TorusGeometry(.017, .0045, 6, 24), satin); lp.scale.set(1.3, .8, .3); lp.position.set(sd * .022, .002, 0); lp.rotation.set(0, sd * .3, sd * .22); add(lp, g, false);
+        var tl = new THREE.Mesh(new THREE.BoxGeometry(.009, .05, .0016), satin); tl.position.set(sd * .008, -.03, .002); tl.rotation.set(.1, 0, sd * .22); add(tl, g, false);
       });
-      var kn = new THREE.Mesh(new THREE.SphereGeometry(.011, 10, 8), satin); kn.scale.z = .8; add(kn, g, false);
+      var kn = new THREE.Mesh(new THREE.BoxGeometry(.011, .013, .007), satin); kn.position.z = .002; add(kn, g, false);
       return g;
     }
     function starMesh(x, y, z, sc, glowy) {
@@ -871,52 +885,80 @@ import './three-setup.js';
     titledBook('Dream Big', '#2A3550', .32, .07, .23, DX + .38, DY + .035, DZ - .12, .06);
     titledBook('Study Hard', '#2F3A55', .30, .07, .22, DX + .37, DY + .105, DZ - .12, -.05);
     titledBook('Be Happy \u2661', '#33503F', .29, .07, .21, DX + .39, DY + .175, DZ - .12, .08);
-    var rbn = mat('#E3A9B1', { roughness: .32, env: .7 });
-    box(.02, .212, .004, rbn, DX + .5, DY + .106, DZ - .005, null, false, .001).rotation.y = .03; bow(null, DX + .5, DY + .13, DZ + .0, .9, .03);
+    var rbn = new THREE.MeshPhysicalMaterial({ color: '#D9A2AA', roughness: .4, sheen: 1, sheenRoughness: .4, sheenColor: new THREE.Color('#FFE6E8') });
+    box(.016, .214, .004, rbn, DX + .5, DY + .107, DZ - .004, null, false, .001).rotation.y = .03; bow(null, DX + .5, DY + .125, DZ + .0, .85, .03);
     tag = null;
     flowerJar(DX - .5, DY, DZ - .1, 1.1);
-    tag = 'candle'; candleJar(DX - .3, DY, DZ + .1); tag = null;
-    tag = 'mug'; bow(null, MX, DY + .075, MZ + .052, 1.1, 0); tag = null;
-    /* a leather writing surface, ink and quill, letters with a wax seal, a magnifier, a pocket watch, a pen cup, a bud vase with a ring dish */
+    tag = 'candle'; candleJar(DX - .33, DY, DZ + .02); tag = null;
+    tag = 'mug'; bow(null, MX - .056, DY + .085, MZ + .004, .6, Math.PI / 2); tag = null;
+    /* a leather writing surface and a few carefully placed things: ink and quill, fountain pens on a tray, letters, a pocket watch, a tassel bookmark, a bud vase */
     var leatherTex = canvasTex(1024, 768, function (x, w, h) {
       x.fillStyle = '#4E1F26'; x.fillRect(0, 0, w, h);
       for (var k = 0; k < 40000; k++) { x.fillStyle = k % 2 ? 'rgba(0,0,0,.08)' : 'rgba(255,200,170,.05)'; x.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random(), 1 + Math.random()); }
       x.strokeStyle = '#C9A55C'; x.lineWidth = 6; x.strokeRect(34, 34, w - 68, h - 68); x.lineWidth = 3; x.strokeRect(52, 52, w - 104, h - 104);
     });
-    box(1.0, .004, .74, new THREE.MeshStandardMaterial({ map: leatherTex, bumpMap: leatherTex, bumpScale: .12, roughness: .55, envMapIntensity: .5 }), DX - .02, DY + .003, DZ + .66, null, true, .002);
+    box(.98, .004, .66, new THREE.MeshStandardMaterial({ map: leatherTex, bumpMap: leatherTex, bumpScale: .12, roughness: .55, envMapIntensity: .5 }), DX, DY + .003, DZ + .64, null, true, .002);
+    function fountainPen(parent, x, y, z, ry, barrelCol, capped) {
+      var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; g.scale.setScalar(.8); (parent || scene).add(g);
+      var lac = new THREE.MeshStandardMaterial({ color: barrelCol, roughness: .16, metalness: .25, envMapIntensity: 1.6 }), gold = mat('#C9A24F', { metalness: .95, roughness: .25, env: 1.5 });
+      var body = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [.0035, 0], [.0062, .008], [.0078, .026], [.0084, .06], [.008, .092], [.0072, .108], [.0052, .118], [0, .119]].map(function (q) { return new THREE.Vector2(q[0], q[1]); }), 20), lac);
+      body.rotation.z = -Math.PI / 2; body.position.x = -.06; add(body, g, true);
+      [.012, .094].forEach(function (bx) { var rg = cyl(.0088, .0088, .0032, gold, -.06 + bx, 0, 0, 20, g); rg.rotation.z = Math.PI / 2; });
+      if (capped) {
+        var cap = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [.0075, 0], [.0093, .004], [.0098, .02], [.0098, .05], [.0092, .062], [.0065, .069], [0, .07]].map(function (q) { return new THREE.Vector2(q[0], q[1]); }), 20), lac);
+        cap.rotation.z = -Math.PI / 2; cap.position.x = .056; add(cap, g, true);
+        box(.034, .0028, .0042, gold, .09, .0098, 0, g, false, .001); cyl(.0099, .0099, .003, gold, .062, 0, 0, 20, g).rotation.z = Math.PI / 2;
+      } else {
+        cyl(.0066, .0066, .016, gold, .067, 0, 0, 16, g).rotation.z = Math.PI / 2;
+        var nib = new THREE.Mesh(new THREE.ConeGeometry(.0058, .026, 14), gold); nib.rotation.z = -Math.PI / 2; nib.scale.z = .45; nib.position.x = .088; add(nib, g, true);
+        box(.012, .0006, .0005, mat('#2A1E18'), .096, .0018, 0, g, false, .0002);
+      }
+      return g;
+    }
+    function bookmarkCard(x, y, z, ry) {
+      var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; scene.add(g);
+      var ct = canvasTex(128, 320, function (c, w, h) {
+        c.fillStyle = '#EFE3CB'; c.fillRect(0, 0, w, h); c.strokeStyle = '#B88A3E'; c.lineWidth = 3; c.strokeRect(6, 6, w - 12, h - 12);
+        c.strokeStyle = '#5E7A4C'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(64, 280); c.bezierCurveTo(58, 220, 72, 150, 62, 70); c.stroke();
+        for (var i = 0; i < 6; i++) { c.fillStyle = i % 3 === 2 ? '#D98F9C' : '#6E8C5A'; c.beginPath(); c.ellipse(64 + (i % 2 ? 11 : -11), 90 + i * 28, 10, 4, i % 2 ? -.5 : .5, 0, 7); c.fill(); }
+        c.fillStyle = '#D98F9C'; c.beginPath(); c.arc(62, 62, 9, 0, 7); c.fill(); c.fillStyle = '#F2D8A8'; c.beginPath(); c.arc(62, 62, 3, 0, 7); c.fill();
+        c.fillStyle = 'rgba(0,0,0,.06)'; for (var k = 0; k < 300; k++) c.fillRect(Math.random() * w, Math.random() * h, 1, 1);
+      });
+      var card = box(.036, .0016, .13, [mat('#E6D8BC'), mat('#E6D8BC'), new THREE.MeshStandardMaterial({ map: ct, roughness: .85 }), mat('#E6D8BC'), mat('#E6D8BC'), mat('#E6D8BC')], 0, .0008, 0, g, true, .0006);
+      var silk = new THREE.MeshPhysicalMaterial({ color: '#C98E94', roughness: .45, sheen: 1, sheenColor: new THREE.Color('#FFE6E8') });
+      var cord = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, .002, -.058), new THREE.Vector3(.012, .0015, -.085), new THREE.Vector3(.004, .0012, -.11), new THREE.Vector3(-.008, .0012, -.125)]), 16, .0014, 6), silk); add(cord, g, false);
+      var tas = new THREE.Mesh(new THREE.ConeGeometry(.0055, .026, 10), silk); tas.rotation.x = -Math.PI / 2; tas.position.set(-.008, .003, -.14); add(tas, g, false);
+      ball(.0035, mat('#B88A3E', { metalness: .9, roughness: .3 }), -.008, .003, -.127, 1, 1, 1, g);
+      return g;
+    }
     (function () {
       var brs = mat('#B88A3E', { metalness: .92, roughness: .3, env: 1.3 }), V = THREE.Vector3;
-      // inkwell with quill
-      var ig = new THREE.Group(); ig.position.set(DX + .5, DY + .004, DZ + 1.0); scene.add(ig);
+      // inkwell with quill: left of the notebook
+      var ig = new THREE.Group(); ig.position.set(DX - .47, DY + .004, DZ + .93); scene.add(ig);
       var ink = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [.04, 0], [.045, .01], [.045, .045], [.03, .06], [.022, .068], [0, .068]].map(function (q) { return new THREE.Vector2(q[0], q[1]); }), 28), new THREE.MeshStandardMaterial({ color: '#1A1A24', roughness: .08, metalness: .1, envMapIntensity: 1.6 })); add(ink, ig, true);
       cyl(.026, .026, .012, brs, 0, .07, 0, 20, ig); cyl(.03, .03, .006, brs, 0, .006, 0, 24, ig);
-      var q = new THREE.Group(); q.position.set(0, .07, 0); q.rotation.set(.4, 0, -.35); ig.add(q);
-      cyl(.0022, .0022, .24, mat('#EFE6D2', { roughness: .6 }), 0, .12, 0, 6, q).castShadow = false;
-      var fe = ball(.022, mat('#F4ECDD', { roughness: .85, side: THREE.DoubleSide }), .004, .17, 0, .2, 2.4, .06, q); fe.castShadow = false;
-      // magnifying glass
-      var mg = new THREE.Group(); mg.position.set(DX - .5, DY + .01, DZ + 1.0); mg.rotation.y = .6; scene.add(mg);
-      var rg = new THREE.Mesh(new THREE.TorusGeometry(.05, .004, 8, 36), brs); rg.rotation.x = Math.PI / 2; rg.position.y = .004; add(rg, mg, true);
-      var gl2 = new THREE.Mesh(new THREE.CircleGeometry(.048, 28), new THREE.MeshStandardMaterial({ color: '#E8F0F0', transparent: true, opacity: .22, roughness: .02, envMapIntensity: 2 })); gl2.rotation.x = -Math.PI / 2; gl2.position.y = .005; mg.add(gl2);
-      var hd = cyl(.007, .009, .13, mat('#2A1A10', { roughness: .4, env: .6 }), .115, .004, 0, 12, mg); hd.rotation.z = Math.PI / 2;
-      // letters + wax seal
-      var lg = new THREE.Group(); lg.position.set(DX + .43, DY + .006, DZ + .8); lg.rotation.y = .3; scene.add(lg);
+      var q = new THREE.Group(); q.position.set(0, .07, 0); q.rotation.set(.35, 0, -.3); ig.add(q);
+      cyl(.002, .002, .2, mat('#EFE6D2', { roughness: .6 }), 0, .1, 0, 6, q).castShadow = false;
+      ball(.016, mat('#F4ECDD', { roughness: .85, side: THREE.DoubleSide }), .003, .15, 0, .22, 2.6, .05, q).castShadow = false;
+      // fountain pens on a small walnut tray: right of the notebook, toward you
+      var tr = new THREE.Group(); tr.position.set(DX + .47, DY + .004, DZ + .9); tr.rotation.y = .06; scene.add(tr);
+      box(.15, .012, .27, mat('#3E2616', { roughness: .4, env: .6 }), 0, .006, 0, tr, true, .005); [-1, 1].forEach(function (s) { flat(.003, .004, .26, brs, s * .0745, .0125, 0, tr); flat(.14, .004, .003, brs, 0, .0125, s * .1335, tr); });
+      fountainPen(tr, -.03, .02, -.04, Math.PI / 2 - .12, '#14141A', true); fountainPen(tr, .035, .02, .03, Math.PI / 2 + .1, '#5A1F2A', false);
+      // letters with a wax seal, tied with a thin satin ribbon: right of the notebook, further back
+      var lg = new THREE.Group(); lg.position.set(DX + .47, DY + .006, DZ + .62); lg.rotation.y = .3; scene.add(lg);
       [0, 1, 2].forEach(function (i) { var e = box(.17, .004, .11, mat(i === 1 ? '#EAD9BC' : '#F1E6CF', { roughness: .9 }), (i - 1) * .006, .002 + i * .0045, (i - 1) * .004, lg, true, .001); e.rotation.y = (i - 1) * .12; });
-      cyl(.014, .014, .004, mat('#8E2B35', { roughness: .35, env: .6 }), .02, .0145, 0, 20, lg); cyl(.009, .009, .0045, mat('#A33C46', { roughness: .35 }), .02, .0155, 0, 16, lg);
+      box(.008, .0145, .114, new THREE.MeshPhysicalMaterial({ color: '#D9A2AA', roughness: .4, sheen: 1, sheenColor: new THREE.Color('#FFE6E8') }), -.02, .0072, 0, lg, false, .001);
+      cyl(.014, .014, .004, mat('#8E2B35', { roughness: .35, env: .6 }), .03, .0145, 0, 20, lg); cyl(.009, .009, .0045, mat('#A33C46', { roughness: .35 }), .03, .0155, 0, 16, lg);
       // pocket watch on a chain
-      var pw = new THREE.Group(); pw.position.set(DX + .3, DY + .016, DZ + .6); pw.rotation.y = -.5; scene.add(pw);
+      var pw = new THREE.Group(); pw.position.set(DX + .24, DY + .016, DZ + .36); pw.rotation.y = -.5; scene.add(pw);
       cyl(.032, .032, .01, brs, 0, 0, 0, 32, pw);
       var wf = new THREE.Mesh(new THREE.CircleGeometry(.027, 28), new THREE.MeshStandardMaterial({ map: canvasTex(128, 128, function (x, w) { x.fillStyle = '#F4ECDA'; x.fillRect(0, 0, w, w); x.strokeStyle = '#2A1E18'; x.lineWidth = 3; for (var t = 0; t < 12; t++) { var a = t / 12 * 6.283; x.beginPath(); x.moveTo(64 + Math.cos(a) * 52, 64 + Math.sin(a) * 52); x.lineTo(64 + Math.cos(a) * 60, 64 + Math.sin(a) * 60); x.stroke(); } x.lineWidth = 4; x.beginPath(); x.moveTo(64, 64); x.lineTo(64, 30); x.stroke(); x.beginPath(); x.moveTo(64, 64); x.lineTo(86, 72); x.stroke(); }), roughness: .5 })); wf.rotation.x = -Math.PI / 2; wf.position.y = .0055; pw.add(wf);
-      var crown = cyl(.006, .006, .012, brs, 0, 0, -.038, 10, pw); crown.rotation.x = Math.PI / 2;
-      var chain = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new V(0, 0, -.044), new V(-.05, 0, -.09), new V(-.1, 0, -.06), new V(-.14, 0, -.11), new V(-.2, 0, -.07)]), 24, .0016, 6), brs); chain.position.y = .0 ; add(chain, pw, false);
-      // pen cup with pens and a brush
-      var pc = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [.03, 0], [.033, .01], [.036, .09], [.032, .092], [.03, .08], [0, .01]].map(function (r) { return new THREE.Vector2(r[0], r[1]); }), 24), new THREE.MeshStandardMaterial({ color: '#B88A3E', metalness: .9, roughness: .32, envMapIntensity: 1.3, side: THREE.DoubleSide })); pc.position.set(DX + .5, DY, DZ - .42); add(pc, null, true);
-      [[-.012, .005, '#1A1A22', .12, .2], [.012, -.008, '#8E2B35', .14, -.15], [0, .012, '#C9A55C', .15, .05], [.006, -.014, '#3B4A3C', .13, -.3]].forEach(function (p) { var pn = cyl(.0042, .0042, .15, mat(p[2], { roughness: .4, env: .6 }), DX + .5 + p[0], DY + .1, DZ - .42 + p[1], 8); pn.rotation.set(p[3], 0, p[4]); pn.castShadow = false; });
-      // bud vase + a ring dish with pearls
-      flowerVase(null, DX + .55, DY, DZ + .46, .7, 'bud', 'blush', .4);
-      var dish = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [.03, 0], [.05, .014], [.054, .016], [.05, .012], [.03, .005], [0, .005]].map(function (r) { return new THREE.Vector2(r[0], r[1]); }), 28), mat('#F3EBDD', { roughness: .2, env: .9, side: THREE.DoubleSide })); dish.position.set(DX + .42, DY + .004, DZ + .72); add(dish, null, true);
-      for (var pi = 0; pi < 7; pi++) { var pa = pi / 7 * 3.4; ball(.0085, mat('#F8F2E8', { roughness: .12, metalness: .15, env: 1.6 }), DX + .42 + Math.cos(pa) * .026, DY + .022, DZ + .72 + Math.sin(pa) * .026, 1, 1, 1).castShadow = false; }
-      var rr = new THREE.Mesh(new THREE.TorusGeometry(.011, .0022, 8, 20), brs); rr.rotation.x = Math.PI / 2 - .4; rr.position.set(DX + .425, DY + .02, DZ + .715); add(rr, null, false);
-      // a small framed picture behind the books
+      cyl(.006, .006, .012, brs, 0, 0, -.038, 10, pw).rotation.x = Math.PI / 2;
+      var chain = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new V(0, 0, -.044), new V(-.05, 0, -.09), new V(-.1, 0, -.06), new V(-.14, 0, -.11), new V(-.2, 0, -.07)]), 24, .0016, 6), brs); add(chain, pw, false);
+      // a bud vase with a single rose
+      flowerVase(null, DX + .5, DY, DZ + .44, .7, 'bud', 'blush', .4);
+      // a tassel bookmark resting beside the books, and a small framed picture
+      bookmarkCard(DX + .17, DY + .004, DZ + .1, -.35);
       putDecor(1, DX - .4, DY + .004, DZ - .5, .15);
     })();
     
@@ -1356,11 +1398,11 @@ import './three-setup.js';
     var baseFov = 60, fovT = 60;
     camera.position.copy(SEAT);
     var HOT = {
-      desk:    { label: 'Pomodoro timer',   at: [DX - .12, DY + .36, DZ + .4], target: [DX - .12, DY + .2, DZ + .4], from: [.45, 1.6, 1.5], w: .75, h: .6 },
-      notebook: { label: 'Notebook',        at: [NBX, DY + .17, NBZ], target: [NBX, DY + .03, NBZ], from: [.4, 1.7, 1.5], w: .95, h: .75 },
+      desk:    { label: 'Pomodoro timer',   at: [DX - .08, DY + .36, DZ + .12], target: [DX - .08, DY + .2, DZ + .12], from: [.45, 1.6, 1.5], w: .75, h: .6 },
+      notebook: { label: 'Notebook',        at: [NBX, DY + .17, NBZ], target: [NBX, DY + .03, NBZ], from: [.35, 1.75, 1.5], w: 1.05, h: .8 },
       reading: { label: 'Reading list',     at: [DX + .38, DY + .34, DZ - .12], target: [DX + .38, DY + .1, DZ - .12], from: [.9, 1.7, 1.2], w: .8, h: .6 },
       lamp:    { label: 'Desk lamp',        at: [al.x, al.y + .22, al.z] },
-      candle:  { label: 'Candle',           at: [DX - .3, DY + .22, DZ + .1] },
+      candle:  { label: 'Candle',           at: [DX - .33, DY + .22, DZ + .02] },
       mug:     { label: 'Tea break',        at: [MX, DY + .26, MZ] },
       cat:     { label: 'Mochi',            at: [.15, 1.22, -1.33], target: [.05, .95, -1.33],  from: [.5, 1.5, .3],     w: 1.1, h: .7 },
       shelf:   { label: 'Your study shelf', at: [1.85, 2.85, 1.0],  target: [2.0, 1.25, 1.0],   from: [.2, 1.5, .9],     w: 2.2, h: 2.7 },
