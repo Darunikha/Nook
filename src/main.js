@@ -1770,7 +1770,7 @@ import { createPainted } from './painted.js';
     $('#mix').appendChild(row);
     row.querySelector('input').oninput = function (e) { c.v = +e.target.value; $('#o-' + c.id).textContent = c.v; setLevel(c); };
   });
-  if (room) room.setRain(CH[0].v / 100);
+  if (room) room.setRain(0);
   function noiseBuffer(type) { var len = ac.sampleRate * 3, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0), last = 0; for (var i = 0; i < len; i++) { var w = Math.random() * 2 - 1; if (type === 'brown') { last = (last + .02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w; } return buf; }
   function loopSrc(buf) { var s = ac.createBufferSource(); s.buffer = buf; s.loop = true; s.start(); return s; }
   function initAudio() {
@@ -1798,11 +1798,11 @@ import { createPainted } from './painted.js';
     CH.forEach(setLevel);
   }
   var SCALE = { rain: .5, fire: 1.2, wind: 1.6, clock: 1 };
-  function setLevel(c) { if (c.id === 'rain' && room) room.setRain(c.v / 100); if (ac) gains[c.id].gain.setTargetAtTime((c.v / 100) * SCALE[c.id], ac.currentTime, .15); }
+  function setLevel(c) { if (c.id === 'rain' && room) room.setRain(playing ? c.v / 100 : 0); if (ac) gains[c.id].gain.setTargetAtTime((c.v / 100) * SCALE[c.id], ac.currentTime, .15); }
   $('#playBtn').onclick = function () {
     if (!ac) initAudio();
     playing = !playing; if (playing) ac.resume(); else ac.suspend();
-    if (room) room.setPlaying(playing);
+    if (room) { room.setPlaying(playing); room.setRain(playing ? CH[0].v / 100 : 0); }
     this.textContent = playing ? 'Lift the needle' : 'Play the record';
   };
 

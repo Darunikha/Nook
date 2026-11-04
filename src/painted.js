@@ -1,4 +1,4 @@
-// The painted library: the illustrated scene with living light (lamp, candle, sconces, star), rain on the windows,
+// The painted library: the illustrated scene with living light (lamp, candle, sconces, star), clear glass with an optional fine rain,
 // drifting dust, steam from the mug, a time-of-day grade, handwriting on the open notebook, and clickable objects.
 // It exposes the same small API as the 3D room, so the rest of the app does not care which scene is showing.
 
@@ -49,6 +49,7 @@ export function createPainted(stage, opts) {
   var img = new Image(); img.className = 'art-img'; img.alt = ''; img.decoding = 'async'; img.src = (opts.base || '/') + 'scene/library-dusk.webp'; art.appendChild(img);
   function layer(cls) { var d = document.createElement('div'); d.className = cls; art.appendChild(d); return d; }
   var sky = layer('sky-tint'); sky.style.clipPath = WINDOW;
+  var sheen = layer('glass-sheen'); sheen.style.clipPath = WINDOW;                 // a soft reflection on clear glass
   var rainCv = document.createElement('canvas'); rainCv.className = 'rain'; rainCv.width = 560; rainCv.height = 470; rainCv.style.cssText = 'left:630px;top:0;width:560px;height:470px'; art.appendChild(rainCv);
   layer('grade');
   Object.keys(LIGHTS).forEach(function (k) {
@@ -122,7 +123,7 @@ export function createPainted(stage, opts) {
   /* ---------- dust in the lamplight, rain on the glass ---------- */
   var dctx = dustCv.getContext('2d'), rctx = rainCv.getContext('2d');
   var motes = []; for (var m = 0; m < 46; m++) motes.push({ x: 120 + Math.random() * 640, y: 60 + Math.random() * 360, r: .6 + Math.random() * 1.3, vx: (Math.random() - .5) * 4, vy: -1 - Math.random() * 3, ph: Math.random() * 6 });
-  var drops = []; for (var d = 0; d < 140; d++) drops.push({ x: Math.random() * 560, y: Math.random() * 470, r: .8 + Math.random() * 2.2, v: 0, stick: Math.random() });
+  var drops = []; for (var d = 0; d < 140; d++) drops.push({ x: Math.random() * 560, y: Math.random() * 500, len: 14 + Math.random() * 26, v: 520 + Math.random() * 260, a: .05 + Math.random() * .07 });
   var last = performance.now();
   function tick(now) {
     requestAnimationFrame(tick);
@@ -134,15 +135,14 @@ export function createPainted(stage, opts) {
       dctx.fillStyle = 'rgba(255,226,170,' + (tw * (lampOn ? .8 : .35)) + ')'; dctx.beginPath(); dctx.arc(p.x, p.y, p.r, 0, 7); dctx.fill();
     });
     rctx.clearRect(0, 0, 560, 470);
-    if (rain > .01) {
-      var n = Math.round(drops.length * Math.min(1, rain));
+    if (rain > .01) {                                        // optional weather: a few thin, faint streaks falling outside the glass
+      var n = Math.round(drops.length * Math.min(1, rain) * .5);
+      rctx.lineCap = 'round';
       for (var i = 0; i < n; i++) {
         var q = drops[i];
-        if (!reduce) { if (q.stick > .985 || q.v > 0) { q.v = Math.min(140, q.v + 220 * dt); q.y += q.v * dt; if (Math.random() < .02) q.v = 0; } q.stick = Math.random(); if (q.y > 480) { q.y = -5; q.x = Math.random() * 560; q.v = 0; } }
-        if (q.v > 20) { rctx.strokeStyle = 'rgba(220,230,255,.18)'; rctx.lineWidth = q.r * .9; rctx.beginPath(); rctx.moveTo(q.x, q.y - 18); rctx.lineTo(q.x, q.y); rctx.stroke(); }
-        var gr = rctx.createRadialGradient(q.x - q.r * .3, q.y - q.r * .3, 0, q.x, q.y, q.r);
-        gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(.6, 'rgba(200,210,240,.22)'); gr.addColorStop(1, 'rgba(60,50,90,.25)');
-        rctx.fillStyle = gr; rctx.beginPath(); rctx.arc(q.x, q.y, q.r, 0, 7); rctx.fill();
+        if (!reduce) { q.y += q.v * dt; if (q.y > 500) { q.y = -q.len; q.x = Math.random() * 560; } }
+        rctx.strokeStyle = 'rgba(225,230,250,' + q.a + ')'; rctx.lineWidth = .7;
+        rctx.beginPath(); rctx.moveTo(q.x, q.y); rctx.lineTo(q.x - q.len * .06, q.y + q.len); rctx.stroke();
       }
     }
   }

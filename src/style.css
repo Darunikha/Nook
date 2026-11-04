@@ -388,7 +388,7 @@ body { background: #3A2318; }
 .art { position: absolute; left: 0; top: 0; width: 1672px; height: 941px; transform-origin: 0 0; }
 .art-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; }
 .sky-tint, .grade { position: absolute; inset: 0; pointer-events: none; transition: background-color 1.4s ease, opacity 1.4s ease; }
-.painted[data-tod="night"] .sky-tint { background: rgba(10,14,48,.55); mix-blend-mode: multiply; }
+.painted[data-tod="night"] .sky-tint { background: rgba(30,32,96,.32); mix-blend-mode: multiply; }
 .painted[data-tod="night"] .grade { background: rgba(34,24,70,.26); mix-blend-mode: multiply; }
 .painted[data-tod="morning"] .sky-tint { background: rgba(255,206,180,.42); mix-blend-mode: screen; }
 .painted[data-tod="morning"] .grade { background: rgba(255,236,220,.10); mix-blend-mode: screen; }
@@ -595,3 +595,8 @@ body.card-open .widgets { opacity: 0; transform: translateX(16px); pointer-event
 }
 .painted.framed .art { transition: transform .7s cubic-bezier(.22,.9,.3,1); }
 @media (prefers-reduced-motion: reduce) { .painted.framed .art { transition: none; } }
+
+/* clear glass: a faint diagonal reflection and a touch of evening depth, no droplets */
+.glass-sheen { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: .55;
+  background: linear-gradient(118deg, transparent 38%, rgba(255,236,246,.07) 41%, rgba(255,236,246,.02) 44%, transparent 47%, transparent 55%, rgba(255,236,246,.05) 57%, transparent 60%),
+              linear-gradient(180deg, rgba(120,110,200,.08), transparent 30%, transparent 70%, rgba(255,190,200,.06)); }
