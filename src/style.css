@@ -601,3 +601,7 @@ body.card-open .widgets { opacity: 0; transform: translateX(16px); pointer-event
   background: linear-gradient(118deg, transparent 38%, rgba(255,236,246,.07) 41%, rgba(255,236,246,.02) 44%, transparent 47%, transparent 55%, rgba(255,236,246,.05) 57%, transparent 60%),
               linear-gradient(180deg, rgba(120,110,200,.08), transparent 30%, transparent 70%, rgba(255,190,200,.06)); }
 
+
+/* time of day: graded versions of the painting crossfade over it */
+.art-img.tod { opacity: 0; transition: opacity 1.4s ease; }
+.art-img.tod.on { opacity: 1; }

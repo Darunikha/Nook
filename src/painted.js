@@ -47,9 +47,10 @@ export function createPainted(stage, opts) {
   var back = document.createElement('div'); back.className = 'backdrop'; back.style.backgroundImage = 'url(' + (opts.base || '/') + 'scene/library-dusk.webp)'; root.appendChild(back);
   var art = document.createElement('div'); art.className = 'art'; root.appendChild(art);
   var img = new Image(); img.className = 'art-img'; img.alt = ''; img.decoding = 'async'; img.src = (opts.base || '/') + 'scene/library-dusk.webp'; art.appendChild(img);
+  // the sky for each time of day is graded into the painting itself (pixel by pixel, cool tones only), so there is no shape or edge over the windows
+  var TODIMG = {};
+  ['morning', 'day', 'night'].forEach(function (t) { var v = new Image(); v.className = 'art-img tod'; v.alt = ''; v.decoding = 'async'; art.appendChild(v); TODIMG[t] = v; });
   function layer(cls) { var d = document.createElement('div'); d.className = cls; art.appendChild(d); return d; }
-  var sky = layer('sky-tint'); sky.style.clipPath = WINDOW;
-  var sheen = layer('glass-sheen'); sheen.style.clipPath = WINDOW;                 // a soft reflection on clear glass
   var rainCv = document.createElement('canvas'); rainCv.className = 'rain'; rainCv.width = 560; rainCv.height = 500; rainCv.style.cssText = 'left:630px;top:0;width:560px;height:500px'; rainCv.style.clipPath = 'polygon(0 0, 100% 0, 100% 99.4%, 0 99.4%)'; art.appendChild(rainCv);
   layer('grade');
   Object.keys(LIGHTS).forEach(function (k) {
@@ -103,7 +104,10 @@ export function createPainted(stage, opts) {
   fit(); setTimeout(function () { root.classList.add('framed'); }, 400); window.addEventListener('load', fit); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 
   /* ---------- time of day: a gentle grade over the painting and the sky ---------- */
-  function setTod(t) { root.dataset.tod = t; }
+  function setTod(t) {
+    root.dataset.tod = t;
+    Object.keys(TODIMG).forEach(function (k) { var v = TODIMG[k]; if (k === t && !v.src) v.src = (opts.base || '/') + 'scene/library-dusk-' + k + '.webp'; v.classList.toggle('on', k === t); });
+  }
 
   /* ---------- handwriting on the painted notebook (left page) ---------- */
   function setNotebook(title, text) {
