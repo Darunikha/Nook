@@ -1,5 +1,6 @@
 import './style.css';
 import './three-setup.js';
+import { createPainted } from './painted.js';
 
 (function () {
   if (location.search.indexOf('perf') > -1) window.__ct = [];
@@ -44,7 +45,9 @@ import './three-setup.js';
   /* =====================================================================
      THE ROOM: an enclosed room seen from your seat (three.js)
      ===================================================================== */
-  var room = (function () {
+  var SCENE = (function () { try { var v = JSON.parse(localStorage.getItem('nook.settings.v1') || '{}'); return v && v.scene === '3d' ? '3d' : 'painted'; } catch (e) { return 'painted'; } })();
+  document.documentElement.setAttribute('data-scene', SCENE);
+  var room = SCENE !== '3d' ? createPainted($('#stage'), { base: import.meta.env.BASE_URL, reduce: window.matchMedia('(prefers-reduced-motion: reduce)').matches }) : (function () {
     var stage = $('#stage');
     function fail(msg) { var d = document.createElement('div'); d.className = 'fallback'; d.textContent = msg; stage.appendChild(d); return null; }
     if (!window.THREE) return fail('The library could not load. Check your connection and refresh.');
@@ -1640,6 +1643,7 @@ import './three-setup.js';
     };
     return api;
   })();
+  if (SCENE !== '3d') { var hl = document.querySelector('#hint .long'); if (hl) hl.textContent = 'Hover or tap things in the library to use them'; var hs = document.querySelector('#hint .short'); if (hs) hs.textContent = 'Tap things in the library'; }
 
   /* ---------- cards ---------- */
   var CARDS = {
@@ -1664,7 +1668,7 @@ import './three-setup.js';
     $('#cardKicker').textContent = CARDS[id][0]; $('#cardTitle').textContent = CARDS[id][1];
     document.querySelectorAll('.sect').forEach(function (s) { s.hidden = s.dataset.sect !== (SECT[id] || id); });
     if (id === 'notebook') setTimeout(function () { var t = $('#nbText'); if (t && openId === 'notebook' && !mobileMQ.matches) t.focus(); }, 520);
-    card.hidden = false; card.scrollTop = 0;
+    card.hidden = false; card.scrollTop = 0; document.body.classList.add('card-open');
     requestAnimationFrame(function () { card.classList.add('open'); });
     $('#spots').classList.add('away'); $('#hint').style.opacity = 0;
     $('#nav').classList.remove('sheet-open'); $('#navMore').setAttribute('aria-expanded', 'false');
@@ -1674,7 +1678,7 @@ import './three-setup.js';
   }
   function closeCard(fromRoute) {
     if (!openId) return;
-    openId = null; card.classList.remove('open');
+    openId = null; card.classList.remove('open'); document.body.classList.remove('card-open');
     setTimeout(function () { if (!openId) card.hidden = true; }, 350);
     $('#spots').classList.remove('away'); $('#hint').style.opacity = 1;
     setNav(null); if (fromRoute !== true) setHash(null, true);
@@ -1687,6 +1691,7 @@ import './three-setup.js';
 
   /* ---------- the library menu ---------- */
   document.querySelectorAll('[data-go]').forEach(function (b) { b.addEventListener('click', function () { var g = b.dataset.go; $('#nav').classList.remove('sheet-open'); $('#navMore').setAttribute('aria-expanded', 'false'); if (g === 'room') closeCard(); else openCard(g); }); });
+  $('#navSubToggle').onclick = function () { var o = $('#nav').classList.toggle('sub-open'); this.setAttribute('aria-expanded', String(o)); };
   $('#navMore').onclick = function () { var o = $('#nav').classList.toggle('sheet-open'); this.setAttribute('aria-expanded', String(o)); };
   document.addEventListener('pointerdown', function (e) { if (!e.target.closest('#nav')) { $('#nav').classList.remove('sheet-open'); $('#navMore').setAttribute('aria-expanded', 'false'); } });
   $('#navCollapse').onclick = function () { S.nav = !S.nav; applySettings(); saveSettings(); };
@@ -1694,8 +1699,14 @@ import './three-setup.js';
   /* ---------- time of day ---------- */
   var todMode = 'auto', lastTod = null;
   function autoTod(h) { return h >= 5 && h < 10 ? 'morning' : h >= 10 && h < 16 ? 'day' : h >= 16 && h < 19 ? 'golden' : 'night'; }
+  function renderWelcome(now) {
+    var h = now.getHours(), g = h >= 5 && h < 12 ? 'Good morning!' : h >= 12 && h < 17 ? 'Good afternoon!' : h >= 17 && h < 22 ? 'Good evening!' : 'Hello, night owl!';
+    var Q = ['A little progress each day adds up to big results \u2661', 'Small steps, every day. You are doing lovely \u2661', 'One page at a time is still a whole book \u2661', 'Be gentle with yourself and keep going \u2661', 'Your future self will thank you for today \u2661', 'Slow and steady fills the shelves \u2661', 'Rest is part of the work, too \u2661'];
+    var day = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5);
+    var ge = $('#wGreet'), qe = $('#wQuote'); if (ge) ge.firstChild.textContent = g + ' '; if (qe) qe.textContent = Q[day % Q.length];
+  }
   function applyTod() {
-    var now = new Date(), tod = todMode === 'auto' ? autoTod(now.getHours()) : todMode;
+    var now = new Date(), tod = todMode === 'auto' ? autoTod(now.getHours()) : todMode; renderWelcome(now);
     document.documentElement.setAttribute('data-tod', tod);
     if (room && tod !== lastTod) room.setTod(tod);
     lastTod = tod;
@@ -1724,6 +1735,7 @@ import './three-setup.js';
     $('#startBtn').textContent = running ? 'Pause' : started ? 'Resume' : (minutes === 5 ? 'Start break' : 'Start focus');
     $('#timeSub').textContent = running ? (minutes === 5 ? 'stretch, sip some tea' : 'Mochi is keeping you company') : started ? 'paused' : 'ready when you are';
     $('#timerPill').hidden = !running && !started;
+    var wt = $('#wTime'); if (wt) { wt.textContent = fmt(remaining); $('#wSub').textContent = (minutes === 5 ? 'Tea break' : subject.name) + ' \u00b7 ' + (running ? (minutes === 5 ? 'resting' : 'focusing') : started ? 'paused' : minutes + ' minutes'); var wp = $('#wPlay'); wp.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#' + (running ? 'i-pause' : 'i-play') + '"/></svg>'; wp.setAttribute('aria-label', running ? 'Pause' : started ? 'Resume' : 'Start'); $('#wTimerCard').classList.toggle('is-running', running); }
     $('#pillTime').textContent = fmt(remaining); $('#pillSub').textContent = minutes === 5 ? 'Break' : subject.name; $('#pillDot').style.background = subject.c[0];
     if (room) { room.setFocus(running && minutes !== 5); room.setDeskClock(fmt(remaining), minutes === 5 ? '#C98E94' : subject.c[0], running, remaining / (minutes * 60), minutes === 5 ? 'BREAK' : running ? 'FOCUS' : started ? 'PAUSED' : 'READY', minutes === 5 ? 'tea time' : subject.name); }
   }
@@ -1745,6 +1757,8 @@ import './three-setup.js';
   $('#resetBtn').onclick = function () { running = false; clearInterval(tick); remaining = minutes * 60; render(); };
   $('#skipBtn').onclick = finish;
   $('#timerPill').onclick = function () { openCard('desk'); };
+  $('#wPlay').onclick = function () { $('#startBtn').onclick(); };
+  $('#wReset').onclick = function () { $('#resetBtn').onclick(); };
   render();
 
   /* ---------- record player: ambience ---------- */
@@ -1870,6 +1884,8 @@ import './three-setup.js';
     $('#gEmpty').hidden = list.length > 0;
     $('#gSuggest').innerHTML = SUGGEST.filter(function (t) { return !list.some(function (g) { return g.text.toLowerCase() === t.toLowerCase(); }); }).slice(0, 3).map(function (t) { return '<button class="chip" type="button" data-s="' + esc(t) + '">+ ' + esc(t) + '</button>'; }).join('');
     $('#gClear').disabled = !done; $('#gCarry').disabled = !prevUnfinished().length;
+    $('#wGoalCount').textContent = done + ' / ' + list.length;
+    $('#wGoals').innerHTML = list.length ? list.slice(0, 4).map(function (g) { return '<li class="' + (g.done ? 'done' : '') + '"><button type="button" class="w-tick" role="checkbox" aria-checked="' + g.done + '" data-id="' + g.id + '" aria-label="' + esc(g.text) + '"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></button><span>' + esc(g.text) + '</span></li>'; }).join('') + (list.length > 4 ? '<li class="more">+ ' + (list.length - 4) + ' more</li>' : '') : '<li class="empty-w">What would make today feel well spent?</li>';
     var all = list.length > 0 && done === list.length; if (all && !gAllDone) toast('Every goal for today is done. Well done!'); gAllDone = all;
   }
   function addGoal(text) {
@@ -1887,6 +1903,7 @@ import './three-setup.js';
   $('#gCarry').onclick = function () { var u = prevUnfinished(), list = gToday(), room12 = 12 - list.length; u.slice(0, room12).forEach(function (g) { list.push({ id: uid(), text: g.text, done: false }); }); gSave(); renderGoals(); toast(u.length ? 'Carried over ' + Math.min(u.length, room12) + (u.length === 1 ? ' goal' : ' goals') : 'Nothing to carry over'); };
   $('#gClear').onclick = function () { goalsData.days[dayKey()] = gToday().filter(function (g) { return !g.done; }); gSave(); renderGoals(); };
   $('#gFocus').onclick = function () { openCard('desk'); };
+  $('#wGoals').onclick = function (e) { var b = e.target.closest('.w-tick'); if (!b) return; var g = gToday().filter(function (x) { return x.id === b.dataset.id; })[0]; if (g) { g.done = !g.done; gSave(); renderGoals(); } };
   gAllDone = (function () { var l = gToday(); return l.length > 0 && l.every(function (g) { return g.done; }); })();
   renderGoals();
 
@@ -1939,15 +1956,16 @@ import './three-setup.js';
   renderMood();
 
   /* ---------- settings ---------- */
-  var SKEY = 'nook.settings.v1', S = Object.assign({ reduce: window.matchMedia('(prefers-reduced-motion: reduce)').matches, hint: true, quality: window.innerWidth <= 900 ? 'balanced' : 'crisp', len: 25, nav: false, tod: 'auto' }, store.get(SKEY, {}) || {});
+  var SKEY = 'nook.settings.v1', S = Object.assign({ scene: 'painted', reduce: window.matchMedia('(prefers-reduced-motion: reduce)').matches, hint: true, quality: window.innerWidth <= 900 ? 'balanced' : 'crisp', len: 25, nav: false, tod: 'auto' }, store.get(SKEY, {}) || {});
   function saveSettings() { S.tod = todMode; store.set(SKEY, S); }
   function pressGroup(sel, attr, val) { document.querySelectorAll(sel + ' .chip').forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset[attr] === String(val))); }); }
   function applySettings() {
     if (room) { room.setReduce(S.reduce); room.setQuality(S.quality); }
     $('#hint').hidden = !S.hint; $('#nav').classList.toggle('rail', !!S.nav); $('#navCollapse').setAttribute('aria-pressed', String(!!S.nav)); $('#navCollapse').setAttribute('aria-label', S.nav ? 'Expand the menu' : 'Collapse the menu');
-    $('#setMotion').checked = !!S.reduce; $('#setHint').checked = !!S.hint; pressGroup('#setQuality', 'q', S.quality); pressGroup('#setLen', 'len', S.len);
+    $('#setMotion').checked = !!S.reduce; $('#setHint').checked = !!S.hint; pressGroup('#setQuality', 'q', S.quality); pressGroup('#setScene', 'scene', S.scene === '3d' ? '3d' : 'painted'); pressGroup('#setLen', 'len', S.len);
   }
   function applyDefaultLen() { if (running || remaining < minutes * 60 || minutes === 5) return; minutes = S.len; remaining = minutes * 60; document.querySelectorAll('#lengths .chip').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.min === String(minutes)); }); render(); }
+  $('#setScene').onclick = function (e) { var b = e.target.closest('[data-scene]'); if (!b || b.dataset.scene === (S.scene === '3d' ? '3d' : 'painted')) return; S.scene = b.dataset.scene; applySettings(); saveSettings(); toast(S.scene === '3d' ? 'Opening the 3D library...' : 'Opening the painted library...'); setTimeout(function () { location.reload(); }, 700); };
   $('#setMotion').onchange = function () { S.reduce = this.checked; applySettings(); saveSettings(); };
   $('#setHint').onchange = function () { S.hint = this.checked; applySettings(); saveSettings(); };
   $('#setQuality').onclick = function (e) { var b = e.target.closest('[data-q]'); if (b) { S.quality = b.dataset.q; applySettings(); saveSettings(); } };

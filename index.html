@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#2A1E17" />
+    <meta name="theme-color" content="#3A2318" />
     <meta name="description" content="Nook: a cozy 3D library to study and read in. Your sessions become books on the shelves." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Nunito:wght@400;600;700;800&family=Caveat:wght@500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Nunito:wght@400;600;700;800&family=Caveat:wght@500;700&family=Patrick+Hand&display=swap">
     <title>Nook Library</title>
   </head>
   <body>
@@ -39,6 +39,11 @@
         <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="18" cy="12" r="1.4" fill="currentColor"/></symbol>
         <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
         <symbol id="i-chev" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
+        <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.5 6.2v11.6c0 .8.9 1.3 1.6.8l8.3-5.8c.6-.4.6-1.2 0-1.6l-8.3-5.8c-.7-.5-1.6 0-1.6.8z" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24"><rect x="7" y="6" width="3.6" height="12" rx="1.2" fill="currentColor" stroke="none"/><rect x="13.4" y="6" width="3.6" height="12" rx="1.2" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-reset" viewBox="0 0 24 24"><path d="M19 12a7 7 0 11-2.05-4.95M19 5v4h-4"/></symbol>
+        <symbol id="i-tomato" viewBox="0 0 32 32"><path d="M16 9.5c-6.6 0-11.5 4.2-11.5 9.8S9.4 28.5 16 28.5s11.5-3.6 11.5-9.2S22.6 9.5 16 9.5z" fill="#D9675E" stroke="#A9453F" stroke-width="1.2"/><path d="M10 14.5c1.2-1.6 3-2.4 4.6-2.6" fill="none" stroke="#F2A49B" stroke-width="1.6" stroke-linecap="round"/><path d="M16 10.5c-1.4-2.4-4-3.2-6-2.4 2 .6 3.4 1.6 4.2 3M16 10.5c1.4-2.4 4-3.2 6-2.4-2 .6-3.4 1.6-4.2 3M16 10.8V6.5" fill="#7FA36A" stroke="#5C7E4C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-bow" viewBox="0 0 64 40"><path d="M32 18C24 6 8 2 6 10c-2 7 8 12 26 10z" fill="#EDBDBF" stroke="#C98A90" stroke-width="1.4"/><path d="M32 18C40 6 56 2 58 10c2 7-8 12-26 10z" fill="#EDBDBF" stroke="#C98A90" stroke-width="1.4"/><path d="M14 9c4 1 9 4 13 8M50 9c-4 1-9 4-13 8" fill="none" stroke="#D99CA2" stroke-width="1"/><path d="M29 20l-9 17 6-2 4 4 3-17zM35 20l9 17-6-2-4 4-3-17z" fill="#E6AEB2" stroke="#C98A90" stroke-width="1.2" stroke-linejoin="round"/><ellipse cx="32" cy="19" rx="5" ry="4.6" fill="#E2A5AA" stroke="#C98A90" stroke-width="1.4"/></symbol>
       </defs>
     </svg>
 
@@ -48,9 +53,10 @@
 
     <!-- the library menu: a parchment bookplate on the left (desktop) / a tab bar along the bottom (mobile) -->
     <nav class="lib-nav paper" id="nav" aria-label="Library menu">
+      <svg class="nav-bow top" aria-hidden="true"><use href="#i-bow"/></svg>
       <div class="nav-head">
         <svg class="ic logo" aria-hidden="true"><use href="#i-room"/></svg>
-        <div class="nav-title"><b>Nook</b><small id="navClock">your study corner</small></div>
+        <div class="nav-title"><b>Your Library <span class="heart" aria-hidden="true">♥</span></b><small id="navClock">your study corner</small></div>
         <button class="nav-collapse" id="navCollapse" type="button" aria-label="Collapse the menu" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
       </div>
       <ul class="nav-main" id="navMain">
@@ -63,8 +69,8 @@
         <li class="nav-morebtn"><button class="nav-item" type="button" id="navMore" aria-label="More of the library" aria-expanded="false" aria-controls="navSheet"><svg class="ic" aria-hidden="true"><use href="#i-more"/></svg><span>More</span></button></li>
       </ul>
       <div class="nav-sheet" id="navSheet">
-        <p class="nav-label">Around the room</p>
-        <ul class="nav-sub">
+        <button class="nav-label nav-more-toggle" id="navSubToggle" type="button" aria-expanded="false" aria-controls="navSub">More rooms <svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
+        <ul class="nav-sub" id="navSub">
           <li class="only-mobile"><button class="nav-item" type="button" data-go="settings"><svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg><span>Settings</span></button></li>
           <li><button class="nav-item" type="button" data-go="music" title="Gramophone"><svg class="ic" aria-hidden="true"><use href="#i-music"/></svg><span>Gramophone</span></button></li>
           <li><button class="nav-item" type="button" data-go="reading" title="Reading list"><svg class="ic" aria-hidden="true"><use href="#i-reading"/></svg><span>Reading list</span></button></li>
@@ -75,7 +81,28 @@
           <li><button class="nav-item" type="button" data-go="cat" title="Mochi"><svg class="ic" aria-hidden="true"><use href="#i-paw"/></svg><span>Mochi</span></button></li>
         </ul>
       </div>
+      <svg class="nav-bow bottom" aria-hidden="true"><use href="#i-bow"/></svg>
     </nav>
+
+    <!-- today at a glance: the welcome note, the Pomodoro timer and today's goals, as in a journal -->
+    <aside class="widgets" id="widgets" aria-label="Today at a glance">
+      <section class="w-note">
+        <svg class="w-bow l" aria-hidden="true"><use href="#i-bow"/></svg><svg class="w-bow r" aria-hidden="true"><use href="#i-bow"/></svg>
+        <h2 id="wGreet">Good evening! <span class="heart" aria-hidden="true">♥</span></h2>
+        <p id="wQuote">A little progress each day adds up to big results ♡</p>
+      </section>
+      <section class="w-card w-timer" id="wTimerCard" aria-label="Pomodoro timer">
+        <header><svg class="tomato" aria-hidden="true"><use href="#i-tomato"/></svg><h3><button class="w-link" type="button" data-go="desk">Pomodoro Timer</button></h3><span class="w-spark" aria-hidden="true"></span></header>
+        <div class="w-time" id="wTime" role="timer">25:00</div>
+        <p class="w-sub" id="wSub">Biology · 25 minutes</p>
+        <div class="w-btns"><button class="w-play" id="wPlay" type="button" aria-label="Start"><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg></button><button class="w-reset" id="wReset" type="button" aria-label="Reset the timer"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg></button></div>
+      </section>
+      <section class="w-card w-goals" aria-label="Today's goals">
+        <header><h3><button class="w-link" type="button" data-go="goals">Today’s Goals</button></h3><span class="w-count" id="wGoalCount">0 / 0</span></header>
+        <ul id="wGoals"></ul>
+        <button class="w-add" type="button" data-go="goals">+ Add a goal</button>
+      </section>
+    </aside>
 
     <div class="brand glass"><h1>Nook</h1><span id="clockText">your study corner</span></div>
     <button class="timer-pill glass" id="timerPill" hidden><i id="pillDot"></i><span id="pillSub">Biology</span><b id="pillTime">25:00</b></button>
@@ -162,6 +189,13 @@
             <button class="chip" data-tod="golden" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-sunset"/></svg>Golden</button>
             <button class="chip" data-tod="night" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg>Night</button>
           </div>
+        </section>
+        <section class="set-group">
+          <h3>The library</h3>
+          <div class="seg" id="setScene" role="group" aria-label="Library view">
+            <button class="chip" data-scene="painted" aria-pressed="true">Painted</button><button class="chip" data-scene="3d" aria-pressed="false">3D room</button>
+          </div>
+          <p class="sub small">The painted library is lighter and calmer; the 3D room lets you look around.</p>
         </section>
         <section class="set-group">
           <h3>Comfort</h3>
