@@ -26,7 +26,7 @@ var LIGHTS = {
   floor: { x: 1134, y: 468, r: 150, c: '255,205,140', a: .35 },
   star: { x: 990, y: 225, r: 60, c: '255,226,160', a: .5 }
 };
-var WINDOW = 'polygon(37.8% 4%, 41% 1.5%, 46.6% 0%, 52% 0%, 58% 1%, 61.4% 3%, 70.6% 3.5%, 70.6% 50%, 37.8% 50%)';
+var WINDOW = 'polygon(37.8% 4%, 41% 1.5%, 46.6% 0%, 52% 0%, 58% 1%, 61.4% 3%, 70.6% 3.5%, 70.6% 53.1%, 37.8% 53.1%)';                     // down to where the glass meets the sill (y = 500)
 
 export function createPainted(stage, opts) {
   opts = opts || {};
@@ -50,7 +50,7 @@ export function createPainted(stage, opts) {
   function layer(cls) { var d = document.createElement('div'); d.className = cls; art.appendChild(d); return d; }
   var sky = layer('sky-tint'); sky.style.clipPath = WINDOW;
   var sheen = layer('glass-sheen'); sheen.style.clipPath = WINDOW;                 // a soft reflection on clear glass
-  var rainCv = document.createElement('canvas'); rainCv.className = 'rain'; rainCv.width = 560; rainCv.height = 470; rainCv.style.cssText = 'left:630px;top:0;width:560px;height:470px'; art.appendChild(rainCv);
+  var rainCv = document.createElement('canvas'); rainCv.className = 'rain'; rainCv.width = 560; rainCv.height = 500; rainCv.style.cssText = 'left:630px;top:0;width:560px;height:500px'; art.appendChild(rainCv);
   layer('grade');
   Object.keys(LIGHTS).forEach(function (k) {
     var L = LIGHTS[k], g = layer('glow glow-' + k);
@@ -134,7 +134,7 @@ export function createPainted(stage, opts) {
       var tw = .35 + .35 * Math.sin(now / 900 + p.ph);
       dctx.fillStyle = 'rgba(255,226,170,' + (tw * (lampOn ? .8 : .35)) + ')'; dctx.beginPath(); dctx.arc(p.x, p.y, p.r, 0, 7); dctx.fill();
     });
-    rctx.clearRect(0, 0, 560, 470);
+    rctx.clearRect(0, 0, 560, 500);
     if (rain > .01) {                                        // optional weather: a few thin, faint streaks falling outside the glass
       var n = Math.round(drops.length * Math.min(1, rain) * .5);
       rctx.lineCap = 'round';

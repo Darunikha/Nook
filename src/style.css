@@ -600,3 +600,7 @@ body.card-open .widgets { opacity: 0; transform: translateX(16px); pointer-event
 .glass-sheen { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: .55;
   background: linear-gradient(118deg, transparent 38%, rgba(255,236,246,.07) 41%, rgba(255,236,246,.02) 44%, transparent 47%, transparent 55%, rgba(255,236,246,.05) 57%, transparent 60%),
               linear-gradient(180deg, rgba(120,110,200,.08), transparent 30%, transparent 70%, rgba(255,190,200,.06)); }
+
+/* the window layers end exactly where the glass meets the lower frame, fading into it, so there is no line across the glass */
+.sky-tint, .glass-sheen { -webkit-mask-image: linear-gradient(to bottom, #000 49.5%, transparent 53.1%); mask-image: linear-gradient(to bottom, #000 49.5%, transparent 53.1%); }
+.rain { -webkit-mask-image: linear-gradient(to bottom, #000 90%, transparent 100%); mask-image: linear-gradient(to bottom, #000 90%, transparent 100%); }
