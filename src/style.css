@@ -128,7 +128,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
 }
 .card.open { opacity: 1; transform: translateY(-50%); pointer-events: auto; }
 .card[hidden], .timer-pill[hidden] { display: none; }
-.card[data-page="notebook"], .card[data-page="mood"], .card[data-page="settings"] { width: 410px; }
+.card[data-page="notebook"], .card[data-page="settings"] { width: 410px; }
 .card::before { content: ""; position: absolute; inset: 6px; border: 1px solid color-mix(in srgb, var(--brass) 36%, transparent); border-radius: calc(var(--r-lg) - 5px); pointer-events: none; }
 .card::after { content: ""; position: absolute; top: -3px; right: 62px; width: 20px; height: 54px; background: linear-gradient(90deg, rgba(255,255,255,.22), transparent 40%, rgba(0,0,0,.1)), var(--blush); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); filter: drop-shadow(0 2px 2px rgba(0,0,0,.25)); pointer-events: none; }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding-top: 2px; position: relative; }
@@ -531,7 +531,7 @@ body.card-open .widgets { opacity: 0; transform: translateX(16px); pointer-event
 @media (min-width: 901px) {
   :root[data-scene="painted"] .card { right: 18px; top: 18px; transform: translateY(10px); width: calc(var(--wid-w) + 70px); max-height: calc(100dvh - 36px); }
   :root[data-scene="painted"] .card.open { transform: none; }
-  :root[data-scene="painted"] .card[data-page="notebook"], :root[data-scene="painted"] .card[data-page="mood"], :root[data-scene="painted"] .card[data-page="settings"] { width: calc(var(--wid-w) + 110px); }
+  :root[data-scene="painted"] .card[data-page="notebook"], :root[data-scene="painted"] .card[data-page="settings"] { width: calc(var(--wid-w) + 110px); }
   :root[data-scene="painted"] .timer-pill { display: none; }
   :root[data-scene="painted"] .hint { left: 50%; bottom: 14px; }
   :root[data-scene="3d"] .widgets { display: none; }

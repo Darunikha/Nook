@@ -1647,14 +1647,14 @@ import { createPainted } from './painted.js';
 
   /* ---------- cards ---------- */
   var CARDS = {
-    desk: ['Pomodoro timer', 'Settle in'], notebook: ['My Notes', 'Write something down'], goals: ['Study Goals', 'Today\u2019s intentions'], mood: ['Mood Tracker', 'How are you feeling?'], settings: ['Settings', 'Make it yours'],
+    desk: ['Pomodoro timer', 'Settle in'], notebook: ['My Notes', 'Write something down'], goals: ['Study Goals', 'Today\u2019s intentions'], settings: ['Settings', 'Make it yours'],
     reading: ['Reading list', 'Currently reading'], music: ['Gramophone', 'Ambience'], chair: ['Fireside chair', 'Currently reading'],
     library: ['The stacks', 'Books you have read'], shelf: ['Your study shelf', 'Your study sessions'], board: ['Card catalog', 'October'],
     window: ['Arched window', 'Time of day'], cat: ['Mochi, the library cat', 'Hello, Mochi']
   };
   var FOCUS_IDS = { desk: 1, notebook: 1, reading: 1, music: 1, chair: 1, library: 1, shelf: 1, board: 1, window: 1, cat: 1 };      // pages that lean the camera over to an object
   var SECT = { reading: 'chair' }, NAVKEY = { chair: 'reading' };
-  var SLUG = { notebook: 'notes', desk: 'timer', goals: 'goals', mood: 'mood', settings: 'settings', music: 'ambience', reading: 'reading', chair: 'chair', library: 'stacks', shelf: 'shelf', board: 'catalog', window: 'window', cat: 'mochi' }, BYSLUG = {};
+  var SLUG = { notebook: 'notes', desk: 'timer', goals: 'goals', settings: 'settings', music: 'ambience', reading: 'reading', chair: 'chair', library: 'stacks', shelf: 'shelf', board: 'catalog', window: 'window', cat: 'mochi' }, BYSLUG = {};
   Object.keys(SLUG).forEach(function (k) { BYSLUG[SLUG[k]] = k; });
   var card = $('#card'), openId = null, mobileMQ = window.matchMedia('(max-width: 900px)');
   function setNav(id) { document.querySelectorAll('[data-go]').forEach(function (b) { if ((NAVKEY[id] || id || 'room') === b.dataset.go) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); }
@@ -1907,53 +1907,6 @@ import { createPainted } from './painted.js';
   gAllDone = (function () { var l = gToday(); return l.length > 0 && l.every(function (g) { return g.done; }); })();
   renderGoals();
 
-  /* ---------- mood tracker ---------- */
-  var MKEY = 'nook.mood.v1', moodData = store.get(MKEY, { entries: {} }), mNoteTimer = null;
-  if (!moodData || !moodData.entries) moodData = { entries: {} };
-  var MOODS = [{ v: 1, name: 'Low', c: '#8F9BB8' }, { v: 2, name: 'Tired', c: '#B3A18C' }, { v: 3, name: 'Okay', c: '#C4AE6E' }, { v: 4, name: 'Good', c: '#D98F9C' }, { v: 5, name: 'Glowing', c: '#D9A441' }];
-  var mSel = dayKey(), mView = { y: new Date().getFullYear(), m: new Date().getMonth() };
-  function faceSvg(v) {
-    var eyes = v === 5 ? '<path d="M9.5 13.2c.9-1.4 2.3-1.4 3.2 0M19.3 13.2c.9-1.4 2.3-1.4 3.2 0"/>' : '<circle class="fill" cx="11.6" cy="13.4" r="1.2"/><circle class="fill" cx="20.4" cy="13.4" r="1.2"/>';
-    var mouth = { 1: 'M10.5 22.2c1.5-2.6 3.3-3.6 5.5-3.6s4 1 5.5 3.6', 2: 'M11 21c1.6-.9 3.1-1.3 5-1.3s3.4.4 5 1.3', 3: 'M11.5 20.4h9', 4: 'M10.5 18.8c1.5 2.8 3.3 3.8 5.5 3.8s4-1 5.5-3.8', 5: 'M9.8 18.2c1.4 4.4 3.8 5.6 6.2 5.6s4.8-1.2 6.2-5.6z' }[v];
-    return '<svg class="face" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13"/>' + eyes + '<path d="' + mouth + '"/></svg>';
-  }
-  function mEntry(k) { return moodData.entries[k] || null; }
-  function mSave() { store.set(MKEY, moodData); }
-  function mLogged(k) { var e = mEntry(k); return e && e.mood > 0 ? e : null; }
-  function fmtLong(k) { return new Date(k + 'T12:00:00').toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }); }
-  function renderMood() {
-    var e = mEntry(mSel), today = dayKey();
-    $('#mDate').textContent = mSel === today ? 'How are you feeling today?' : 'How did ' + fmtLong(mSel) + ' feel?';
-    $('#mStamps').innerHTML = MOODS.map(function (m) { return '<button class="stamp" type="button" role="radio" aria-checked="' + !!(e && e.mood === m.v) + '" data-v="' + m.v + '" style="--tint:' + m.c + '">' + faceSvg(m.v) + '<small>' + m.name + '</small></button>'; }).join('');
-    var note = $('#mNote'); if (document.activeElement !== note) note.value = e ? e.note || '' : '';
-    $('#mMonth').textContent = new Date(mView.y, mView.m, 1).toLocaleDateString([], { month: 'long', year: 'numeric' });
-    var first = new Date(mView.y, mView.m, 1), lead = (first.getDay() + 6) % 7, dim = new Date(mView.y, mView.m + 1, 0).getDate(), html = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(function (d) { return '<span class="h">' + d + '</span>'; }).join('');
-    for (var b = 0; b < lead; b++) html += '<span class="blank"></span>';
-    for (var d = 1; d <= dim; d++) {
-      var k = mView.y + '-' + String(mView.m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0'), en = mLogged(k), md = en && MOODS[en.mood - 1], future = k > today;
-      html += '<button type="button" data-k="' + k + '"' + (future ? ' disabled' : '') + ' class="' + (en ? 'logged ' : '') + (k === today ? 'today ' : '') + (k === mSel ? 'sel' : '') + '"' + (md ? ' style="--tint:' + md.c + '" aria-label="' + fmtLong(k) + ': ' + md.name + '"' : ' aria-label="' + fmtLong(k) + '"') + '>' + (md ? faceSvg(en.mood) + '<span class="dnum">' + d + '</span>' : d) + '</button>';
-    }
-    $('#mCal').innerHTML = html;
-    $('#mNext').disabled = mView.y > new Date().getFullYear() || (mView.y === new Date().getFullYear() && mView.m >= new Date().getMonth());
-    var streak = 0, c = new Date(); if (!mLogged(dayKey(c))) c.setDate(c.getDate() - 1);
-    while (mLogged(dayKey(c))) { streak++; c.setDate(c.getDate() - 1); }
-    var sum = 0, n = 0; for (var q = 0; q < 7; q++) { var dd = new Date(); dd.setDate(dd.getDate() - q); var le = mLogged(dayKey(dd)); if (le) { sum += le.mood; n++; } }
-    var total = Object.keys(moodData.entries).filter(function (k2) { return mLogged(k2); }).length;
-    $('#mStreak').textContent = streak; $('#mAvg').textContent = n ? (sum / n).toFixed(1) : '-'; $('#mCount').textContent = total;
-  }
-  $('#mStamps').onclick = function (ev) {
-    var b = ev.target.closest('.stamp'); if (!b) return; var v = +b.dataset.v, en = mEntry(mSel) || (moodData.entries[mSel] = { mood: 0, note: '' });
-    en.mood = en.mood === v ? 0 : v; if (!en.mood && !en.note) delete moodData.entries[mSel];
-    mSave(); renderMood(); if (en.mood) toast('Logged: ' + MOODS[v - 1].name);
-  };
-  $('#mNote').oninput = function () {
-    var v = this.value.slice(0, 160), en = mEntry(mSel) || (moodData.entries[mSel] = { mood: 0, note: '' }); en.note = v; if (!en.mood && !v) delete moodData.entries[mSel];
-    clearTimeout(mNoteTimer); mNoteTimer = setTimeout(function () { mSave(); renderMood(); }, 350);
-  };
-  $('#mCal').onclick = function (ev) { var b = ev.target.closest('button[data-k]'); if (!b || b.disabled) return; mSel = b.dataset.k; renderMood(); };
-  $('#mPrev').onclick = function () { mView.m--; if (mView.m < 0) { mView.m = 11; mView.y--; } renderMood(); };
-  $('#mNext').onclick = function () { mView.m++; if (mView.m > 11) { mView.m = 0; mView.y++; } renderMood(); };
-  renderMood();
 
   /* ---------- settings ---------- */
   var SKEY = 'nook.settings.v1', S = Object.assign({ scene: 'painted', reduce: window.matchMedia('(prefers-reduced-motion: reduce)').matches, hint: true, quality: window.innerWidth <= 900 ? 'balanced' : 'crisp', len: 25, nav: false, tod: 'auto' }, store.get(SKEY, {}) || {});

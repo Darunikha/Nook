@@ -34,10 +34,9 @@ A parchment menu runs down the left of the screen (a tab bar along the bottom on
 | **My Notes** | `#/notes` | A notebook: write, add pages, and it is handwritten onto the journal on your desk. |
 | **Pomodoro** | `#/timer` | The focus timer on the desk. |
 | **Study Goals** | `#/goals` | A daily checklist on an index card. |
-| **Mood Tracker** | `#/mood` | Log how the day felt, with a month of stamps. |
 | **Settings** | `#/settings` | Light of day, reduced motion, picture quality, default session, export or clear notes. |
 
-Notes, goals, moods and settings are saved in this browser (localStorage). Nothing is sent anywhere.
+Notes, goals and settings are saved in this browser (localStorage). Nothing is sent anywhere.
 
 ## Run it
 

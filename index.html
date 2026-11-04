@@ -19,7 +19,6 @@
         <symbol id="i-notes" viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a2 2 0 012.8 2.8L7.8 18.8z"/><path d="M14.5 6.5l3 3M12 20.5h8"/></symbol>
         <symbol id="i-timer" viewBox="0 0 24 24"><path d="M6.5 3.5h11M6.5 20.5h11M7.5 3.5c0 4.5 3 5.5 4.5 8.5-1.5 3-4.5 4-4.5 8.5M16.5 3.5c0 4.5-3 5.5-4.5 8.5 1.5 3 4.5 4 4.5 8.5"/></symbol>
         <symbol id="i-goals" viewBox="0 0 24 24"><path d="M4 6.5l1.8 1.8L9 5M4 12.5l1.8 1.8L9 11M4 18.5l1.8 1.8L9 17M12.5 7H20M12.5 13H20M12.5 19H20"/></symbol>
-        <symbol id="i-mood" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.2c1 1.6 2.2 2.3 3.5 2.3s2.5-.7 3.5-2.3"/><circle cx="9.3" cy="10" r=".7" fill="currentColor"/><circle cx="14.7" cy="10" r=".7" fill="currentColor"/></symbol>
         <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.2v2.6M12 18.2v2.6M3.2 12h2.6M18.2 12h2.6M5.8 5.8l1.9 1.9M16.3 16.3l1.9 1.9M18.2 5.8l-1.9 1.9M7.7 16.3l-1.9 1.9"/></symbol>
         <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2.2"/><circle cx="17" cy="16" r="2.2"/></symbol>
         <symbol id="i-reading" viewBox="0 0 24 24"><path d="M5 4.5h10a3 3 0 013 3v12H8a3 3 0 01-3-3z"/><path d="M8 19.5h10M9 8.5h5"/></symbol>
@@ -64,7 +63,6 @@
         <li><button class="nav-item" type="button" data-go="notebook" aria-label="My Notes" title="My Notes"><svg class="ic" aria-hidden="true"><use href="#i-notes"/></svg><span><b class="l">My Notes</b><b class="s">Notes</b></span></button></li>
         <li><button class="nav-item" type="button" data-go="desk" aria-label="Pomodoro" title="Pomodoro"><svg class="ic" aria-hidden="true"><use href="#i-timer"/></svg><span><b class="l">Pomodoro</b><b class="s">Timer</b></span></button></li>
         <li><button class="nav-item" type="button" data-go="goals" aria-label="Study Goals" title="Study Goals"><svg class="ic" aria-hidden="true"><use href="#i-goals"/></svg><span><b class="l">Study Goals</b><b class="s">Goals</b></span></button></li>
-        <li><button class="nav-item" type="button" data-go="mood" aria-label="Mood Tracker" title="Mood Tracker"><svg class="ic" aria-hidden="true"><use href="#i-mood"/></svg><span><b class="l">Mood Tracker</b><b class="s">Mood</b></span></button></li>
         <li class="nav-settings"><button class="nav-item" type="button" data-go="settings" aria-label="Settings" title="Settings"><svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg><span>Settings</span></button></li>
         <li class="nav-morebtn"><button class="nav-item" type="button" id="navMore" aria-label="More of the library" aria-expanded="false" aria-controls="navSheet"><svg class="ic" aria-hidden="true"><use href="#i-more"/></svg><span>More</span></button></li>
       </ul>
@@ -168,16 +166,6 @@
         <button class="btn" id="gFocus">Start a focus session</button>
       </div>
 
-      <!-- Mood Tracker: stamps and a month of them -->
-      <div class="sect" data-sect="mood" hidden>
-        <p class="sub" id="mDate">How are you feeling today?</p>
-        <div class="stamps" id="mStamps" role="radiogroup" aria-label="Mood"></div>
-        <textarea id="mNote" class="m-note" maxlength="160" rows="2" placeholder="A line about the day (optional)" aria-label="Note about this day"></textarea>
-        <div class="month-nav"><button class="chip" id="mPrev" aria-label="Previous month">&lsaquo;</button><b id="mMonth">Month</b><button class="chip" id="mNext" aria-label="Next month">&rsaquo;</button></div>
-        <div class="mcal" id="mCal"></div>
-        <div class="ledger three"><div><b id="mStreak">0</b><small>day streak</small></div><div><b id="mAvg">-</b><small>last 7 days</small></div><div><b id="mCount">0</b><small>days logged</small></div></div>
-      </div>
-
       <!-- Settings: a bookplate of preferences -->
       <div class="sect" data-sect="settings" hidden>
         <section class="set-group">
@@ -218,7 +206,7 @@
         <section class="set-group">
           <h3>Your notebook</h3>
           <div class="row"><button class="btn" id="setExport">Export as text</button><button class="btn" id="setWipe">Clear notebook</button></div>
-          <p class="sub small">Notes, goals, moods and these settings are saved in this browser only.</p>
+          <p class="sub small">Notes, goals and these settings are saved in this browser only.</p>
         </section>
       </div>
 
