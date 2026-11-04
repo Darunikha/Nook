@@ -387,12 +387,12 @@ body { background: #3A2318; }
 .painted { position: absolute; inset: 0; overflow: hidden; background: #3A2318; }
 .art { position: absolute; left: 0; top: 0; width: 1672px; height: 941px; transform-origin: 0 0; }
 .art-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; }
-.sky-tint, .sky-glass, .grade { position: absolute; inset: 0; pointer-events: none; transition: background-color 1.4s ease, opacity 1.4s ease; }
+.sky-tint, .grade { position: absolute; inset: 0; pointer-events: none; transition: background-color 1.4s ease, opacity 1.4s ease; }
 .painted[data-tod="night"] .sky-tint { background: rgba(30,32,96,.32); mix-blend-mode: multiply; }
 .painted[data-tod="night"] .grade { background: rgba(34,24,70,.26); mix-blend-mode: multiply; }
-.painted[data-tod="morning"] .sky-glass { background: rgba(255,206,180,.42); mix-blend-mode: screen; }
+.painted[data-tod="morning"] .sky-tint { background: rgba(255,206,180,.42); mix-blend-mode: screen; }
 .painted[data-tod="morning"] .grade { background: rgba(255,236,220,.10); mix-blend-mode: screen; }
-.painted[data-tod="day"] .sky-glass { background: rgba(170,215,255,.55); mix-blend-mode: screen; }
+.painted[data-tod="day"] .sky-tint { background: rgba(170,215,255,.55); mix-blend-mode: screen; }
 .painted[data-tod="day"] .grade { background: rgba(255,248,236,.14); mix-blend-mode: screen; }
 .glow { position: absolute; border-radius: 50%; pointer-events: none; mix-blend-mode: screen; animation: glowBreathe 6s ease-in-out infinite; transition: opacity .6s ease; }
 .glow-candle { animation: candleFlicker 2.8s infinite; }

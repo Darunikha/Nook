@@ -49,11 +49,7 @@ export function createPainted(stage, opts) {
   var img = new Image(); img.className = 'art-img'; img.alt = ''; img.decoding = 'async'; img.src = (opts.base || '/') + 'scene/library-dusk.webp'; art.appendChild(img);
   function layer(cls) { var d = document.createElement('div'); d.className = cls; art.appendChild(d); return d; }
   var sky = layer('sky-tint'); sky.style.clipPath = WINDOW;
-  // the bright times of day and the glass reflection follow the actual glass in the painting, never the frames or the wall
-  var glassUrl = 'url(' + (opts.base || '/') + 'scene/window-glass.png)';
-  function onGlass(el) { el.style.webkitMaskImage = el.style.maskImage = glassUrl; el.style.webkitMaskSize = el.style.maskSize = '100% 100%'; el.style.webkitMaskRepeat = el.style.maskRepeat = 'no-repeat'; }
-  var skyGlass = layer('sky-glass'); onGlass(skyGlass);
-  var sheen = layer('glass-sheen'); onGlass(sheen);                                    // a soft reflection on clear glass
+  var sheen = layer('glass-sheen'); sheen.style.clipPath = WINDOW;                 // a soft reflection on clear glass
   var rainCv = document.createElement('canvas'); rainCv.className = 'rain'; rainCv.width = 560; rainCv.height = 500; rainCv.style.cssText = 'left:630px;top:0;width:560px;height:500px'; rainCv.style.clipPath = 'polygon(0 0, 100% 0, 100% 99.4%, 0 99.4%)'; art.appendChild(rainCv);
   layer('grade');
   Object.keys(LIGHTS).forEach(function (k) {
