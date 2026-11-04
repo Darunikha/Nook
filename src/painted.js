@@ -44,6 +44,7 @@ export function createPainted(stage, opts) {
 
   /* ---------- build ---------- */
   var root = document.createElement('div'); root.className = 'painted'; stage.appendChild(root);
+  var back = document.createElement('div'); back.className = 'backdrop'; back.style.backgroundImage = 'url(' + (opts.base || '/') + 'scene/library-dusk.webp)'; root.appendChild(back);
   var art = document.createElement('div'); art.className = 'art'; root.appendChild(art);
   var img = new Image(); img.className = 'art-img'; img.alt = ''; img.decoding = 'async'; img.src = (opts.base || '/') + 'scene/library-dusk.webp'; art.appendChild(img);
   function layer(cls) { var d = document.createElement('div'); d.className = cls; art.appendChild(d); return d; }
@@ -70,16 +71,35 @@ export function createPainted(stage, opts) {
 
   /* ---------- fit the painting to the window (cover), keep the desk in view ---------- */
   var scale = 1;
+  // The framing always keeps the whole notebook in view: on desktops it sits in the free space between the menu and the
+  // panels; on phones the painting is scaled so the notebook fits the width, with a soft-focus copy of the room behind it.
+  var NB = { x0: 500, x1: 1160, y1: 935 };                     // the notebook (with a little margin), in artwork pixels
   function fit() {
     var W = stage.clientWidth, H = stage.clientHeight, mobile = W <= 900;
     var bar = mobile ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bar-h')) || 66) : 0;
-    var h = H - bar; scale = Math.max(W / IW, h / IH);
-    var fxp = mobile ? .52 : .5, fyp = mobile ? .62 : .55;
-    var x = (W - IW * scale) * fxp, y = (h - IH * scale) * fyp;
-    art.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + scale + ')';
-    art.style.setProperty('--inv', String(1 / scale));
+    var h = H - bar, cover = Math.max(W / IW, h / IH), s = cover;
+    if (mobile) s = Math.min(cover, Math.max(W / (NB.x1 - NB.x0 + 30), h / IH * .62));
+    var L = 0, R = W;
+    if (!mobile) {
+      var nav = document.getElementById('nav'), wid = document.getElementById('widgets');
+      if (nav) L = nav.getBoundingClientRect().right + 12;
+      var cardEl = document.getElementById('card'), open = document.body.classList.contains('card-open');
+      if (open && cardEl) R = cardEl.getBoundingClientRect().left - 12; else if (wid && getComputedStyle(wid).display !== 'none') R = wid.getBoundingClientRect().left - 12;
+      if (R - L < 320) { L = 0; R = W; }
+    }
+    var x = (L + R) / 2 - (NB.x0 + NB.x1) / 2 * s;
+    if (IW * s >= W) x = Math.min(0, Math.max(W - IW * s, x)); else x = (W - IW * s) / 2;
+    var y;
+    if (IH * s >= h) { y = Math.min((h - IH * s) * .55, h - 10 - NB.y1 * s); y = Math.max(y, h - IH * s); }
+    else y = h - IH * s;                                        // smaller than the screen: sit on the bottom, room fades in above
+    scale = s;
+    art.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + s + ')';
+    art.style.setProperty('--inv', String(1 / s));
   }
-  new ResizeObserver(fit).observe(stage); fit();
+  var ro = new ResizeObserver(function () { requestAnimationFrame(fit); });
+  ro.observe(stage); ['nav', 'widgets'].forEach(function (id) { var e = document.getElementById(id); if (e) ro.observe(e); });
+  new MutationObserver(function () { requestAnimationFrame(fit); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  fit(); setTimeout(function () { root.classList.add('framed'); }, 400); window.addEventListener('load', fit); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 
   /* ---------- time of day: a gentle grade over the painting and the sky ---------- */
   function setTod(t) { root.dataset.tod = t; }
