@@ -52,7 +52,6 @@ export function createPainted(stage, opts) {
   ['morning', 'day', 'night'].forEach(function (t) { var v = new Image(); v.className = 'art-img tod'; v.alt = ''; v.decoding = 'async'; art.appendChild(v); TODIMG[t] = v; });
   function layer(cls) { var d = document.createElement('div'); d.className = cls; art.appendChild(d); return d; }
   var rainCv = document.createElement('canvas'); rainCv.className = 'rain'; rainCv.width = 560; rainCv.height = 500; rainCv.style.cssText = 'left:630px;top:0;width:560px;height:500px'; rainCv.style.clipPath = 'polygon(0 0, 100% 0, 100% 99.4%, 0 99.4%)'; art.appendChild(rainCv);
-  layer('grade');
   Object.keys(LIGHTS).forEach(function (k) {
     var L = LIGHTS[k], g = layer('glow glow-' + k);
     g.style.cssText = 'left:' + (L.x - L.r) + 'px;top:' + (L.y - L.r) + 'px;width:' + (2 * L.r) + 'px;height:' + (2 * L.r) + 'px;background:radial-gradient(circle, rgba(' + L.c + ',' + L.a + ') 0%, rgba(' + L.c + ',' + (L.a * .35) + ') 35%, rgba(' + L.c + ',0) 70%)';
@@ -103,7 +102,7 @@ export function createPainted(stage, opts) {
   new MutationObserver(function () { requestAnimationFrame(fit); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   fit(); setTimeout(function () { root.classList.add('framed'); }, 400); window.addEventListener('load', fit); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 
-  /* ---------- time of day: a gentle grade over the painting and the sky ---------- */
+  /* ---------- time of day: crossfade between versions of the painting ---------- */
   function setTod(t) {
     root.dataset.tod = t;
     Object.keys(TODIMG).forEach(function (k) { var v = TODIMG[k]; if (k === t && !v.src) v.src = (opts.base || '/') + 'scene/library-dusk-' + k + '.webp'; v.classList.toggle('on', k === t); });
@@ -136,7 +135,8 @@ export function createPainted(stage, opts) {
     motes.forEach(function (p) {
       if (!reduce) { p.x += p.vx * dt + Math.sin(now / 1700 + p.ph) * .05; p.y += p.vy * dt; if (p.y < 20) { p.y = 420; p.x = 120 + Math.random() * 640; } }
       var tw = .35 + .35 * Math.sin(now / 900 + p.ph);
-      dctx.fillStyle = 'rgba(255,226,170,' + (tw * (lampOn ? .8 : .35)) + ')'; dctx.beginPath(); dctx.arc(p.x, p.y, p.r, 0, 7); dctx.fill();
+      var inWin = Math.max(0, Math.min(1, Math.min(p.x - 305, 602 - p.x, 260 - p.y) / 14));                   // never in front of the glass (artwork / 2)
+      dctx.fillStyle = 'rgba(255,226,170,' + (tw * (lampOn ? .8 : .35) * (1 - inWin)) + ')'; dctx.beginPath(); dctx.arc(p.x, p.y, p.r, 0, 7); dctx.fill();
     });
     rctx.clearRect(0, 0, 560, 500);
     if (rain > .01) {                                        // optional weather: a few thin, faint streaks falling outside the glass
