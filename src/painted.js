@@ -1,4 +1,4 @@
-// The painted library: the illustrated scene with living light (lamp, candle, sconces, star), clear glass with an optional fine rain,
+// The painted library: the illustrated scene with living light (lamp, candle, sconces, star, relit per time of day), clear glass with an optional fine rain,
 // drifting dust, steam from the mug, a time-of-day grade, handwriting on the open notebook, and clickable objects.
 // It exposes the same small API as the 3D room, so the rest of the app does not care which scene is showing.
 
@@ -18,13 +18,13 @@ var HOTSPOTS = [
   { id: 'shelf', label: 'Your study shelf', r: [1192, 160, 140, 520] }
 ];
 // lights in the painting
-var LIGHTS = {
-  lamp: { x: 405, y: 494, r: 300, c: '255,196,120', a: .55 },
-  candle: { x: 1475, y: 792, r: 120, c: '255,180,100', a: .6 },
-  sconceL: { x: 445, y: 300, r: 90, c: '255,200,130', a: .35 },
-  sconceT: { x: 563, y: 86, r: 70, c: '255,200,130', a: .3 },
-  floor: { x: 1134, y: 468, r: 150, c: '255,205,140', a: .35 },
-  star: { x: 990, y: 225, r: 60, c: '255,226,160', a: .5 }
+var LIGHTS = {                                              // small accents only: the light itself is in the painting's relight
+  lamp: { x: 405, y: 494, r: 150, c: '255,205,150', a: .16 },
+  candle: { x: 1475, y: 792, r: 70, c: '255,190,120', a: .24 },
+  sconceL: { x: 445, y: 300, r: 48, c: '255,210,160', a: .12 },
+  sconceT: { x: 563, y: 86, r: 38, c: '255,210,160', a: .10 },
+  floor: { x: 1134, y: 468, r: 82, c: '255,212,165', a: .12 },
+  star: { x: 990, y: 225, r: 36, c: '255,230,185', a: .16 }
 };
 var WINDOW = 'polygon(37.8% 4%, 41% 1.5%, 46.6% 0%, 52% 0%, 58% 1%, 61.4% 3%, 70.6% 3.5%, 70.6% 52.82%, 37.8% 52.82%)';                   // down to the top of the lower window frame (y = 497)
 
