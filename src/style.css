@@ -392,10 +392,10 @@ body { background: #3A2318; }
 .glow-candle { animation: candleFlicker 2.8s infinite; }
 .glow-star { animation: glowBreathe 3.4s ease-in-out infinite; }
 @keyframes glowBreathe { 50% { opacity: calc(var(--g) * .8); } }
-.painted[data-tod="morning"] .glow { --g: .45; }
-.painted[data-tod="day"] .glow { --g: .2; }
-.painted[data-tod="golden"] .glow { --g: .8; }
-.painted[data-tod="night"] .glow { --g: 1; }
+.painted[data-tod="morning"] .glow { --g: .2; }
+.painted[data-tod="day"] .glow { --g: .08; }
+.painted[data-tod="golden"] .glow { --g: .4; }
+.painted[data-tod="night"] .glow { --g: .6; }
 @keyframes candleFlicker { 0%, 100% { opacity: var(--g); transform: scale(1); } 12% { opacity: calc(var(--g) * .82); transform: scale(.97); } 26% { opacity: calc(var(--g) * .95); } 41% { opacity: calc(var(--g) * .76); transform: scale(1.03); } 58% { opacity: calc(var(--g) * .98); } 73% { opacity: calc(var(--g) * .85); transform: scale(.98); } }
 .lamp-shade { position: absolute; left: 0; top: 280px; width: 1060px; height: 661px; pointer-events: none; opacity: 0; transition: opacity .6s ease; mix-blend-mode: multiply; background: radial-gradient(60% 55% at 38% 40%, rgba(40,22,40,.5), rgba(40,22,40,.22) 60%, transparent 85%); }
 .lamp-off .glow-lamp { opacity: 0; animation: none; }
