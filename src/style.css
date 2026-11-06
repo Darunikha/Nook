@@ -606,3 +606,29 @@ body.card-open .widgets { opacity: 0; transform: translateX(16px); pointer-event
 /* time of day: graded versions of the painting crossfade over it */
 .art-img.tod { opacity: 0; transition: opacity 1.4s ease; }
 .art-img.tod.on { opacity: 1; }
+
+/* the panels make room for the candle: a column that can tighten, with the goals list absorbing what is left */
+@media (min-width: 901px) {
+  .widgets { display: flex; flex-direction: column; }
+  .widgets > * { flex: none; }
+  .widgets > .w-goals { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .w-goals header, .w-goals .w-add { flex: none; }
+  .w-goals ul { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  .widgets.tight { gap: 12px; padding-top: 14px; }
+  .widgets.tight .w-note { padding: 14px 16px 12px; }
+  .widgets.tight .w-note h2 { font-size: 24px; margin-top: 4px; }
+  .widgets.tight .w-note p { font-size: 15px; }
+  .widgets.tight .w-card { padding: 12px 16px 14px; }
+  .widgets.tight .w-time { font-size: 40px; margin-top: 6px; }
+  .widgets.tight .w-sub { margin-bottom: 6px; }
+  .widgets.tight .w-play, .widgets.tight .w-reset { width: 42px; height: 42px; }
+  .widgets.tight .w-goals li { min-height: 30px; }
+  .widgets.tighter .w-note { padding: 10px 14px 8px; }
+  .widgets.tighter .w-note p { display: none; }
+  .widgets.tighter .w-timer { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; }
+  .widgets.tighter .w-timer header { grid-column: 1 / -1; }
+  .widgets.tighter .w-time { grid-column: 1; text-align: left; font-size: 34px; margin: 4px 0 0; }
+  .widgets.tighter .w-sub { display: none; }
+  .widgets.tighter .w-btns { grid-column: 2; grid-row: 2; gap: 10px; }
+  .widgets.tighter .w-play, .widgets.tighter .w-reset { width: 38px; height: 38px; }
+}

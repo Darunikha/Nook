@@ -89,17 +89,35 @@ export function createPainted(stage, opts) {
       if (R - L < 320) { L = 0; R = W; }
     }
     var x = (L + R) / 2 - (NB.x0 + NB.x1) / 2 * s;
+    if (!mobile && !document.body.classList.contains('card-open')) x = Math.min(x, W - 10 - 1645 * s);      // keep the candle and bunny on screen
     if (IW * s >= W) x = Math.min(0, Math.max(W - IW * s, x)); else x = (W - IW * s) / 2;
     var y;
     if (IH * s >= h) { y = Math.min((h - IH * s) * .55, h - 10 - NB.y1 * s); y = Math.max(y, h - IH * s); }
     else y = h - IH * s;                                        // smaller than the screen: sit on the bottom, room fades in above
     scale = s;
+    fitPanels(W, mobile, x, y, s);
     art.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + s + ')';
     art.style.setProperty('--inv', String(1 / s));
+  }
+  // The right-hand panels never cover the candle and bunny: they measure themselves against the room and tighten up, then
+  // let the goals list scroll, rather than sitting on top of them.
+  var KEEP = { x0: 1400, x1: 1645, y0: 712 };
+  function fitPanels(W, mobile, x, y, s) {
+    var wid = document.getElementById('widgets'); if (!wid) return;
+    var tiers = ['', 'tight', 'tighter'];
+    function setTier(t) { wid.classList.remove('tight', 'tighter'); if (t === 'tighter') wid.classList.add('tight', 'tighter'); else if (t) wid.classList.add(t); }
+    if (mobile) { setTier(''); wid.style.maxHeight = ''; return; }
+    var left = W - 18 - wid.offsetWidth, clash = x + KEEP.x1 * s > left && x + KEEP.x0 * s < W;
+    var avail = Math.max(240, Math.round(y + KEEP.y0 * s - 12 - wid.offsetTop));
+    wid.style.maxHeight = 'none';
+    var i = 0;
+    for (; i < tiers.length; i++) { setTier(tiers[i]); if (!clash || wid.offsetHeight <= avail) break; }
+    wid.style.maxHeight = clash ? avail + 'px' : '';
   }
   var ro = new ResizeObserver(function () { requestAnimationFrame(fit); });
   ro.observe(stage); ['nav', 'widgets'].forEach(function (id) { var e = document.getElementById(id); if (e) ro.observe(e); });
   new MutationObserver(function () { requestAnimationFrame(fit); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  var goalsEl = document.getElementById('wGoals'); if (goalsEl) new MutationObserver(function () { requestAnimationFrame(fit); }).observe(goalsEl, { childList: true });
   fit(); setTimeout(function () { root.classList.add('framed'); }, 400); window.addEventListener('load', fit); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 
   /* ---------- time of day: crossfade between versions of the painting ---------- */
