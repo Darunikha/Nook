@@ -45,9 +45,12 @@ import { createPainted } from './painted.js';
   /* =====================================================================
      THE ROOM: an enclosed room seen from your seat (three.js)
      ===================================================================== */
-  var SCENE = (function () { try { var v = JSON.parse(localStorage.getItem('nook.settings.v1') || '{}'); return v && v.scene === '3d' ? '3d' : 'painted'; } catch (e) { return 'painted'; } })();
+  // Both library views use the same painting; '3d' adds parallax depth. The older procedural room stays reachable at ?room=classic.
+  var CLASSIC = /[?&]room=classic\b/.test(location.search);
+  var DEPTH = !CLASSIC && (function () { try { var v = JSON.parse(localStorage.getItem('nook.settings.v1') || '{}'); return !!v && v.scene === '3d'; } catch (e) { return false; } })();
+  var SCENE = CLASSIC ? '3d' : 'painted';
   document.documentElement.setAttribute('data-scene', SCENE);
-  var room = SCENE !== '3d' ? createPainted($('#stage'), { base: import.meta.env.BASE_URL, reduce: window.matchMedia('(prefers-reduced-motion: reduce)').matches }) : (function () {
+  var room = SCENE !== '3d' ? createPainted($('#stage'), { base: import.meta.env.BASE_URL, depth: DEPTH, reduce: window.matchMedia('(prefers-reduced-motion: reduce)').matches }) : (function () {
     var stage = $('#stage');
     function fail(msg) { var d = document.createElement('div'); d.className = 'fallback'; d.textContent = msg; stage.appendChild(d); return null; }
     if (!window.THREE) return fail('The library could not load. Check your connection and refresh.');
@@ -1643,7 +1646,7 @@ import { createPainted } from './painted.js';
     };
     return api;
   })();
-  if (SCENE !== '3d') { var hl = document.querySelector('#hint .long'); if (hl) hl.textContent = 'Hover or tap things in the library to use them'; var hs = document.querySelector('#hint .short'); if (hs) hs.textContent = 'Tap things in the library'; }
+  if (SCENE !== '3d') { var hl = document.querySelector('#hint .long'); if (hl) hl.textContent = DEPTH ? 'Drag to look around \u00b7 hover or tap things to use them' : 'Hover or tap things in the library to use them'; var hs = document.querySelector('#hint .short'); if (hs) hs.textContent = DEPTH ? 'Drag to look around \u00b7 tap things' : 'Tap things in the library'; }
 
   /* ---------- cards ---------- */
   var CARDS = {

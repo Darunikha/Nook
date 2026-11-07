@@ -20,7 +20,7 @@ The light follows your real time of day (morning, day, golden hour, night). You 
 ## Two ways to see the library
 
 - **Painted (default):** the illustrated reading room, with living light (lamp, candle, sconces), rain on the windows, drifting dust and steam. Click the notebook, mug, lamp, candle, cat, books, armchair, window or shelves. The welcome note, Pomodoro timer and today's goals sit beside the room like journal pages.
-- **3D room:** the real-time 3D library you can look around. Switch in **Settings > The library**.
+- **3D room:** the same painting drawn with depth, so near objects shift against the room as you drag. Switch in **Settings > The library**. The older procedural room is still at `?room=classic`.
 
 The painting lives in `public/scene/library-dusk.webp` (the design reference, with its mock-up panels retouched out). Make sure you have the rights to the artwork before publishing the site publicly.
 
