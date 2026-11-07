@@ -632,9 +632,3 @@ body.card-open .widgets { opacity: 0; transform: translateX(16px); pointer-event
   .widgets.tighter .w-btns { grid-column: 2; grid-row: 2; gap: 10px; }
   .widgets.tighter .w-play, .widgets.tighter .w-reset { width: 38px; height: 38px; }
 }
-
-/* the 3D view: same painting, drawn with depth */
-.art-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
-.painted.depth { cursor: grab; touch-action: none; }
-.painted.depth.looking { cursor: grabbing; }
-.painted.depth .art-img, .painted.depth .hotspots .hs { -webkit-user-select: none; user-select: none; }
