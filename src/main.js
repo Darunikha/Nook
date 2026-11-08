@@ -69,10 +69,22 @@ import { createPainted } from './painted.js';
     });
 
     /* ---------- post: a soft roll-off and the painting's muted, warm grade (no bloom) ---------- */
-    var composer = null, bloom = null, finalPass = null;
+    var composer = null, bloom = null, finalPass = null, ssao = null, plainPass = null;
     if (THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass && THREE.ShaderPass) {
       composer = new THREE.EffectComposer(renderer, new THREE.WebGLRenderTarget(2, 2, { type: THREE.HalfFloatType }));
-      composer.addPass(new THREE.RenderPass(scene, camera));
+      ssao = THREE.SSAOPass ? new THREE.SSAOPass(scene, camera, 2, 2) : null;
+      if (ssao) {
+        ssao.kernelRadius = .12; ssao.minDistance = .00005; ssao.maxDistance = .004;     // contact shadows within ~25 cm
+        ssao.beautyRenderTarget.texture.type = THREE.HalfFloatType;                       // no banding in the dark corners
+        ssao.blurMaterial.fragmentShader = ssao.blurMaterial.fragmentShader.replace('vec3( result / ( 5.0 * 5.0 ) )', 'vec3( mix( 1.0, result / ( 5.0 * 5.0 ), .6 ) )');   // gentle, not sooty
+        var aoHide = [], baseOverride = ssao.renderOverride.bind(ssao);
+        ssao.renderOverride = function (r, m, rt, cc, ca) {                               // glows and glass don't cast occlusion
+          aoHide.length = 0; scene.traverse(function (o) { if (o.visible && (o.isSprite || o.isPoints || (o.material && o.material.transparent))) { aoHide.push(o); o.visible = false; } });
+          baseOverride(r, m, rt, cc, ca); aoHide.forEach(function (o) { o.visible = true; });
+        };
+        composer.addPass(ssao);
+      } else composer.addPass(new THREE.RenderPass(scene, camera));
+      if (ssao) { plainPass = new THREE.RenderPass(scene, camera); plainPass.enabled = false; composer.insertPass(plainPass, 0); }   // used instead when quality is Light
             finalPass = new THREE.ShaderPass({
         uniforms: { tDiffuse: { value: null }, exposure: { value: 1.0 }, time: { value: 0 }, res: { value: new THREE.Vector2(1, 1) } },
         vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -176,6 +188,22 @@ import { createPainted } from './painted.js';
     function sdEll(x, y, z, cx, cy, cz, rx, ry, rz) { var px = (x - cx) / rx, py = (y - cy) / ry, pz = (z - cz) / rz, k0 = Math.sqrt(px * px + py * py + pz * pz), k1 = Math.sqrt(px * px / (rx * rx) + py * py / (ry * ry) + pz * pz / (rz * rz)); return k1 ? k0 * (k0 - 1) / k1 : -Math.min(rx, ry, rz); }
     function sdCap(x, y, z, a, b, ra, rb) { var pax = x - a[0], pay = y - a[1], paz = z - a[2], bax = b[0] - a[0], bay = b[1] - a[1], baz = b[2] - a[2], h = Math.max(0, Math.min(1, (pax * bax + pay * bay + paz * baz) / (bax * bax + bay * bay + baz * baz))); return Math.hypot(pax - bax * h, pay - bay * h, paz - baz * h) - (ra + (rb - ra) * h); }
     function smin(a, b, k) { var h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * .25; }
+    function furCoat(mesh, len, shells, density) {     // a soft coat: layered shells, each keeping fewer and thinner strand tips
+      for (var i = 1; i <= shells; i++) (function (h) {
+        var m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
+        m.onBeforeCompile = function (sh) {
+          sh.uniforms.uFur = { value: len * h }; sh.uniforms.uH = { value: h }; sh.uniforms.uDen = { value: density };
+          sh.vertexShader = 'uniform float uFur;\nvarying vec3 vObj;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvObj = position;\ntransformed += normalize(objectNormal) * uFur;');
+          sh.fragmentShader = 'uniform float uH;\nuniform float uDen;\nvarying vec3 vObj;\n' + sh.fragmentShader.replace('#include <color_fragment>', [
+            '#include <color_fragment>',
+            'vec3 cellP = vObj * uDen; vec3 cid = floor(cellP); vec3 cf = fract(cellP) - .5;',
+            'float rnd = fract(sin(dot(cid, vec3(12.9898, 78.233, 37.719))) * 43758.5453);',
+            'if (rnd < uH * .85 || length(cf) > (1. - uH) * .62) discard;',
+            'diffuseColor.rgb *= mix(.78, 1.06, uH);'].join('\n'));
+        };
+        var shell = new THREE.Mesh(mesh.geometry, m); shell.castShadow = false; shell.receiveShadow = true; shell.userData.noMerge = true; shell.userData.noPick = true; mesh.add(shell);
+      })(i / shells);
+    }
     function sculpt(sdf, cx, cy, cz, half, res, material, colorAt) {
       if (!THREE.MarchingCubes) return new THREE.Mesh(new THREE.SphereGeometry(half * .5, 24, 16), material);
       var mc = new THREE.MarchingCubes(res, material, false, false, 90000), f = mc.field, hs = res / 2;
@@ -803,18 +831,23 @@ import { createPainted } from './painted.js';
     });
     var leatherSide = mat('#4B1D23', { roughness: .55, env: .6 }), coverTop = new THREE.MeshStandardMaterial({ map: coverTex, bumpMap: coverTex, bumpScale: .3, roughness: .55, envMapIntensity: .6 });
     var NBX = DX, NBZ = DZ + .72, NBW = .34, NBD = .44, NBG = .01;
+    var underPageM = new THREE.MeshStandardMaterial({ color: '#EDE3CE', roughness: .95, side: THREE.DoubleSide });
     function pgY(d) { d = Math.max(0, Math.min(1, d)); return .026 * Math.pow(Math.max(0, Math.sin(Math.PI * Math.min(1, d * 1.01))), .7) * (1 - .25 * d); }
     var nbG = new THREE.Group(); nbG.position.set(NBX, DY, NBZ); nbG.rotation.y = .035; scene.add(nbG);
     box(.78, .016, .52, [leatherSide, leatherSide, coverTop, leatherSide, leatherSide, leatherSide], 0, .008, 0, nbG, true, .01);                        // cover board
     [[-.39, -.26], [.39, -.26], [-.39, .26], [.39, .26]].forEach(function (c) { box(.038, .0025, .038, brassM, c[0] + (c[0] < 0 ? .015 : -.015), .0172, c[1] + (c[1] < 0 ? .015 : -.015), nbG, false, .001); });   // brass corners
     box(.012, .0022, .52, mat('#1A1A1F', { roughness: .8 }), .372, .0171, 0, nbG, false, .001);                                                       // elastic band across the rim
-    box(.016, .03, NBD, mat('#3A2620', { roughness: .7 }), 0, .02, 0, nbG, false, .004);                                                             // dark gutter
+    var coilM = mat('#3B3632', { metalness: .85, roughness: .32, env: .9 }), coilG = new THREE.TorusGeometry(.0115, .00145, 8, 22);
+    for (var ci = 0; ci < 18; ci++) { var ring = new THREE.Mesh(coilG, coilM); ring.position.set(0, .031, -NBD / 2 + .018 + ci * (NBD - .036) / 17); ring.rotation.z = .25; add(ring, nbG, false); }   // spiral binding
     [-1, 1].forEach(function (sd) {
       box(NBW, .016, NBD, [pageEdge, pageEdge, pageEdge, pageEdge, pageEdge, pageEdge], sd * (NBW / 2 + NBG), .024, 0, nbG, true, .003);                    // block of page edges
       var N = 30, g = new THREE.PlaneGeometry(NBW, NBD, N, 1); g.rotateX(-Math.PI / 2); var pp = g.attributes.position, prof = [];
       for (var i = 0; i < pp.count; i++) { var u = (pp.getX(i) + NBW / 2) / NBW, d = sd < 0 ? 1 - u : u; pp.setY(i, pgY(d)); }
       g.computeVertexNormals();
       var sheet = new THREE.Mesh(g, sd < 0 ? pageML : pageMR); sheet.position.set(sd * (NBW / 2 + NBG), .032, 0); add(sheet, nbG, true);
+      for (var lay = 1; lay <= 5; lay++) {           // the pages beneath, each a touch out of line, so the edges read as separate sheets
+        var under = new THREE.Mesh(g, underPageM); under.position.set(sd * (NBW / 2 + NBG + lay * .0012), .032 - lay * .0032, (lay % 2 ? .0018 : -.0012) * lay * .5); under.scale.set(1, 1 - lay * .14, 1); under.rotation.y = (lay % 2 ? .004 : -.003); add(under, nbG, false);
+      }
       var sh = new THREE.Shape(); sh.moveTo(-NBW / 2, 0); for (var q = 0; q <= N; q++) { var uq = q / N, dq = sd < 0 ? 1 - uq : uq; sh.lineTo(-NBW / 2 + uq * NBW, pgY(dq)); } sh.lineTo(NBW / 2, 0); sh.closePath();
       [1, -1].forEach(function (fz) { var sk = new THREE.Mesh(new THREE.ShapeGeometry(sh), skirtM); sk.position.set(sd * (NBW / 2 + NBG), .032, fz * NBD / 2); if (fz < 0) sk.rotation.y = Math.PI; add(sk, nbG, false); });   // visible stacked page edges under the curve
     });
@@ -911,12 +944,19 @@ import { createPainted } from './painted.js';
       var wtr = new THREE.Mesh(new THREE.CylinderGeometry(.054, .05, .085, 28), new THREE.MeshStandardMaterial({ color: '#CFE8EE', transparent: true, opacity: .2, roughness: .05, depthWrite: false })); wtr.position.y = .045; add(wtr, g, false);
       var jb = new THREE.Mesh(new THREE.CylinderGeometry(.056, .056, .012, 28), glass); jb.position.y = .006; add(jb, g, false);
       var stemM = mat('#6E8A5E', { roughness: .8 }), V = THREE.Vector3;
-      var heads = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshStandardMaterial({ color: '#FFFFFF', emissive: '#FFF2E0', emissiveIntensity: .18, roughness: .8 }), 260), hn = 0, dm = new THREE.Object3D();
+      var heads = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: .85 }), 900), hn = 0, dm = new THREE.Object3D(), fc = new THREE.Color();
       var sdv = 5; function r5() { sdv = (sdv * 16807) % 2147483647; return (sdv - 1) / 2147483646; }
-      for (var i = 0; i < 24; i++) {
-        var a = r5() * 6.283, d = .03 + r5() * .15, hy = .26 + r5() * .22 - d * .5, tip = new V(Math.cos(a) * d, hy, Math.sin(a) * d);
-        rod(new V(Math.cos(a) * .012, .03, Math.sin(a) * .012), tip, .0016, stemM, g).castShadow = false;
-        for (var f = 0; f < 9 && hn < 260; f++) { var fa = r5() * 6.283, fd = r5() * .035, fh = r5() * .03; dm.position.set(tip.x + Math.cos(fa) * fd, tip.y + fh, tip.z + Math.sin(fa) * fd); dm.scale.setScalar(.006 + r5() * .006); dm.rotation.set(0, 0, 0); dm.updateMatrix(); heads.setMatrixAt(hn++, dm.matrix); }
+      function floret(px, py, pz) { if (hn >= 900) return; dm.position.set(px, py, pz); dm.scale.setScalar(.0032 + r5() * .0028); dm.rotation.set(r5() * 3, r5() * 3, 0); dm.updateMatrix(); heads.setMatrixAt(hn, dm.matrix); heads.setColorAt(hn, fc.setRGB(1, .97 - r5() * .05, .95 - r5() * .08)); hn++; }
+      for (var i = 0; i < 20; i++) {
+        var a = r5() * 6.283, d = .03 + r5() * .13, hy = .2 + r5() * .2 - d * .4, base = new V(Math.cos(a) * .01, .03, Math.sin(a) * .01), tip = new V(Math.cos(a) * d, hy, Math.sin(a) * d);
+        var mid = base.clone().lerp(tip, .55).add(new V((r5() - .5) * .03, 0, (r5() - .5) * .03));
+        rod(base, mid, .0015, stemM, g).castShadow = false; rod(mid, tip, .0012, stemM, g).castShadow = false;
+        if (r5() < .4) { var lf = new THREE.Mesh(new THREE.SphereGeometry(.012, 8, 4), stemM); lf.scale.set(.18, 1, .06); lf.position.copy(mid); lf.rotation.set(r5() - .5, r5() * 3, .5 + r5() * .5); add(lf, g, false); }
+        for (var b = 0; b < 4; b++) {                 // little twigs from the tip, each ending in a cloud of florets
+          var ta = r5() * 6.283, tl = .018 + r5() * .03, tw = tip.clone().add(new V(Math.cos(ta) * tl, .004 + r5() * .02, Math.sin(ta) * tl));
+          rod(tip, tw, .0008, stemM, g).castShadow = false;
+          for (var f = 0; f < 7; f++) floret(tw.x + (r5() - .5) * .022, tw.y + (r5() - .2) * .014, tw.z + (r5() - .5) * .022);
+        }
       }
       heads.count = hn; heads.castShadow = false; if (tag) heads.userData.hot = tag; g.add(heads);
       return g;
@@ -1001,6 +1041,15 @@ import { createPainted } from './painted.js';
       return g;
     }
     fountainPen(null, NBX + .17, DY + .07, NBZ + .02, -.5, '#14141A', false);
+    (function () {
+      var sheetTex = canvasTex(256, 340, function (x, w, h) { x.fillStyle = '#F2EADA'; x.fillRect(0, 0, w, h); x.strokeStyle = 'rgba(70,90,120,.22)'; for (var y = 40; y < h - 10; y += 16) { x.beginPath(); x.moveTo(12, y); x.lineTo(w - 12, y); x.stroke(); } x.fillStyle = 'rgba(42,41,66,.55)'; for (var l = 0; l < 7; l++) x.fillRect(18, 34 + l * 16, 60 + ((l * 53) % 140), 1.6); });
+      [[-.43, -.05, .32, .0], [-.37, -.14, -.18, .0012]].forEach(function (q) { var sh = new THREE.Mesh(new THREE.PlaneGeometry(.21, .28), new THREE.MeshStandardMaterial({ map: sheetTex, roughness: .95 })); sh.rotation.set(-Math.PI / 2, 0, q[2]); sh.position.set(NBX + q[0], .8062 + q[3], NBZ + q[1]); sh.receiveShadow = true; scene.add(sh); });
+      var pg = new THREE.Group(); pg.position.set(NBX + .47, .8093, NBZ + .14); pg.rotation.y = 1.1; scene.add(pg);
+      var body = new THREE.Mesh(new THREE.CylinderGeometry(.0042, .0042, .15, 6), mat('#2F4A3E', { roughness: .45 })); body.rotation.z = Math.PI / 2; add(body, pg, true);
+      var wood = new THREE.Mesh(new THREE.ConeGeometry(.0042, .016, 6), mat('#D9B98C', { roughness: .8 })); wood.rotation.z = -Math.PI / 2; wood.position.x = .083; add(wood, pg, false);
+      var lead = new THREE.Mesh(new THREE.ConeGeometry(.0013, .005, 6), mat('#2A2A2A', { roughness: .5 })); lead.rotation.z = -Math.PI / 2; lead.position.x = .0915; add(lead, pg, false);
+      cyl(.0045, .0045, .012, brassM, -.081, 0, 0, 12, pg).rotation.z = Math.PI / 2; cyl(.0042, .0042, .01, '#E3A1A6', -.092, 0, 0, 12, pg).rotation.z = Math.PI / 2;
+    })();
 
     tag = null;
 
@@ -1175,18 +1224,8 @@ import { createPainted } from './painted.js';
     var signM = new THREE.Mesh(new THREE.PlaneGeometry(1.2, .3), new THREE.MeshStandardMaterial({ map: sign })); signM.position.set(0, 3.55, Z1 - .02); signM.rotation.y = Math.PI; scene.add(signM);
 
     /* ---------- pom-pom plants ---------- */
-    function leafPlant(x, y, z, s, potCol, n) {
-      var g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); scene.add(g);
-      var clay = mat(potCol || '#9A5B3A', { roughness: .75, env: .25 });
-      cyl(.095, .068, .15, clay, 0, .075, 0, 32, g); cyl(.108, .108, .028, clay, 0, .16, 0, 32, g); cyl(.092, .092, .012, '#2A1B12', 0, .17, 0, 24, g).castShadow = false;
-      var greens = ['#2D5A33', '#3A6B3A', '#26502F', '#4A7A45', '#335F38'], sd = Math.floor(x * 131 + z * 71 + 5);
-      function r() { sd = (sd * 16807 + 11) % 2147483647; return (sd % 1000) / 1000; }
-      for (var i = 0; i < (n || 16); i++) {
-        var ln = .16 + r() * .16, tilt = .25 + r() * 1.0, a = i * 2.39996 + r() * .5;
-        var pv = new THREE.Group(); pv.position.y = .17; pv.rotation.set(-tilt, a, 0, 'YXZ'); g.add(pv);
-        var lf = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), mat(greens[i % 5], { roughness: .55, side: THREE.DoubleSide })); lf.scale.set(.03 + r() * .018, .006, ln); lf.position.z = ln * .95; lf.rotation.z = (r() - .5) * .5; add(lf, pv, false);
-      }
-      return g;
+    function leafPlant(x, y, z, s) {                 // small potted plants (CC0 model), sized like the old ones
+      var k = s * .52; model('potted_plant_02', scene, { x: x, y: y + .097 * k, z: z, s: k, ry: (x * 7.1 + z * 3.3) % 6.283, env: .3 });
     }
     var plantN = 0;
     function plant(x, z, s) {                         // floor plants in terracotta pots (CC0 models)
@@ -1231,13 +1270,13 @@ import { createPainted } from './painted.js';
       c.copy(cG).lerp(cS, stripe * .6).lerp(cW, Math.min(1, white));
       c.offsetHSL(0, 0, Math.sin(x * 210 + y * 170 + z * 190) * .012);
     }
-    var catBody = sculpt(catSdf, -.02, .1, .02, .27, 76, furM, catColor); add(catBody, cat);
+    var catBody = sculpt(catSdf, -.02, .1, .02, .27, 76, furM, catColor); add(catBody, cat); furCoat(catBody, .009, 10, 620);
     var HEADY = .118, head = new THREE.Group(); head.position.set(.085, HEADY, .088); head.rotation.set(.12, .1, -.12); cat.add(head);
     var headM = sculpt(catHeadSdf, 0, -.005, .02, .11, 60, furM, function (x, y, z, c) {
       var w = sm2(-.004, -.02, y) * sm2(.02, .045, z) + sm2(.014, .006, Math.abs(x)) * sm2(.045, .06, z) * sm2(.03, .01, y);
       c.copy(cG).lerp(cS, Math.pow(Math.max(0, Math.sin(x * 95)), 3) * sm2(.025, .055, y) * .55).lerp(cW, Math.min(1, w));
     });
-    add(headM, head);
+    add(headM, head); furCoat(headM, .006, 8, 700);
     var earM = new THREE.MeshPhysicalMaterial({ color: '#CF8649', roughness: .9, sheen: 1, sheenRoughness: .5, sheenColor: new THREE.Color('#FFE0C0') }), earIn = mat('#E8B3A6', { roughness: .9 });
     [-1, 1].forEach(function (sd) {
       var ear = new THREE.Mesh(new THREE.ConeGeometry(.03, .056, 24), earM); ear.position.set(sd * .045, .058, -.008); ear.rotation.set(-.15, 0, -sd * .38); ear.scale.z = .55; add(ear, head);
@@ -1648,7 +1687,7 @@ import { createPainted } from './painted.js';
       toggleLamp: function () { lampOnB = !lampOnB; return lampOnB; }, toggleCandle: function () { candleOnB = !candleOnB; return candleOnB; },
       setNotebook: function (title, text, date, page, total) { NB.title = title || ''; NB.empty = !(title || text); NB.lines = (title ? [title] : []).concat(text ? nbWrap(text, 512 - 100) : []); NB.date = date || ''; NB.page = page || 1; NB.total = total || 1; redrawNB(); },
       setReduce: function (v) { reduce = !!v; },
-      setQuality: function (q) { var d = window.devicePixelRatio || 1; DPR = q === 'light' ? 1 : q === 'balanced' ? Math.min(d, 1.25) : Math.min(d, 1.75); renderer.setPixelRatio(DPR); resize(); },
+      setQuality: function (q) { if (ssao) { ssao.enabled = q !== 'light'; plainPass.enabled = !ssao.enabled; } var d = window.devicePixelRatio || 1; DPR = q === 'light' ? 1 : q === 'balanced' ? Math.min(d, 1.25) : Math.min(d, 1.75); renderer.setPixelRatio(DPR); resize(); },
       pet: function () { petT = 1.6; catHop = 1; }, hello: function () { catHop = 1; }
     };
     return api;
