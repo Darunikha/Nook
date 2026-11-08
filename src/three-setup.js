@@ -8,5 +8,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { mergeBufferGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
 
-window.THREE = { ...core, mergeBufferGeometries, RoundedBoxGeometry, EffectComposer, RenderPass, ShaderPass, UnrealBloomPass, RoomEnvironment };
+window.THREE = { ...core, mergeBufferGeometries, RoundedBoxGeometry, EffectComposer, RenderPass, ShaderPass, UnrealBloomPass, RoomEnvironment, GLTFLoader, MarchingCubes };

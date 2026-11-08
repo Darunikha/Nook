@@ -60,6 +60,7 @@ This makes a static site in `dist/` that you can host anywhere.
 ## Built with
 
 - [three.js](https://threejs.org) for the 3D room
+- [Poly Haven](https://polyhaven.com) (CC0) for the 3D room's scanned wood and fabric textures, the armchair, plant and side table models, and the reflection panorama (in `public/3d/`)
 - [Vite](https://vitejs.dev) for dev and build
 
 Everything runs in your browser. All sounds are generated live, and nothing is sent anywhere.

@@ -56,13 +56,17 @@ import { createPainted } from './painted.js';
     try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); } catch (e) { return fail('Your browser does not support 3D graphics (WebGL).'); }
     var DPR = Math.min(window.devicePixelRatio || 1, 1.75);
     renderer.setPixelRatio(DPR);
-    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.VSMShadowMap;
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     stage.appendChild(renderer.domElement);
     var scene = new THREE.Scene(); scene.background = new THREE.Color('#2A1E17');
     scene.fog = new THREE.Fog('#2A1E17', 9, 26);                          // warm candle haze
     var camera = new THREE.PerspectiveCamera(60, 1, .05, 60); camera.rotation.order = 'YXZ';
     var envMats = [];
     try { var pmrem = new THREE.PMREMGenerator(renderer); scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), .04).texture; } catch (e) { /* reflections are optional */ }
+    var ASSET = import.meta.env.BASE_URL + '3d/';                          // CC0 textures, models and HDRI from Poly Haven (polyhaven.com)
+    new THREE.TextureLoader().load(ASSET + 'hdr/reading_room_1k.jpg', function (t) {   // reflections from a real reading room (panorama)
+      try { t.mapping = THREE.EquirectangularReflectionMapping; t.encoding = THREE.sRGBEncoding; var pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromEquirectangular(t).texture; t.dispose(); pm.dispose(); } catch (e) { /* keep the fallback */ }
+    });
 
     /* ---------- post: a soft roll-off and the painting's muted, warm grade (no bloom) ---------- */
     var composer = null, bloom = null, finalPass = null;
@@ -106,9 +110,9 @@ import { createPainted } from './painted.js';
       var mn = Math.min(w, h, d), segs = mn < .08 ? 1 : mn < .3 ? 2 : 3;
       return boxCache[k] = RB ? new RB(w, h, d, segs, Math.min((r || .1) * .4, mn * .3)) : new THREE.BoxGeometry(w, h, d);
     }
-    function box(w, h, d, m, x, y, z, parent, cast, r) { var mesh = new THREE.Mesh(geoBox(w, h, d, r), Array.isArray(m) || m.isMaterial ? m : mat(m)); mesh.position.set(x, y, z); return add(mesh, parent, cast); }
-    function flat(w, h, d, m, x, y, z, parent, cast) { var mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m.isMaterial ? m : mat(m)); mesh.position.set(x, y, z); return add(mesh, parent, cast === true); }
-    function cyl(rt, rb, h, m, x, y, z, seg, parent) { var mesh = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 32), m.isMaterial ? m : mat(m)); mesh.position.set(x, y, z); return add(mesh, parent); }
+    function box(w, h, d, m, x, y, z, parent, cast, r) { m = Array.isArray(m) || m.isMaterial ? m : mat(m); var bg = geoBox(w, h, d, r); if (m.userData && m.userData.metric) bg = metricUV(bg.clone(), m.userData.metric, m.userData.grainV, x * 3.1 + y * 1.7 + z * 2.3); var mesh = new THREE.Mesh(bg, m); mesh.position.set(x, y, z); return add(mesh, parent, cast); }
+    function flat(w, h, d, m, x, y, z, parent, cast) { m = m.isMaterial ? m : mat(m); var fg = new THREE.BoxGeometry(w, h, d); if (m.userData.metric) metricUV(fg, m.userData.metric, m.userData.grainV, x * 3.1 + y * 1.7 + z * 2.3); var mesh = new THREE.Mesh(fg, m); mesh.position.set(x, y, z); return add(mesh, parent, cast === true); }
+    function cyl(rt, rb, h, m, x, y, z, seg, parent) { m = m.isMaterial ? m : mat(m); var cg = new THREE.CylinderGeometry(rt, rb, h, seg || 32); if (m.userData.metric) metricCylUV(cg, (rt + rb) / 2, h, m.userData.metric, m.userData.grainV); var mesh = new THREE.Mesh(cg, m); mesh.position.set(x, y, z); return add(mesh, parent); }
     var ballCache = {};
     function ball(r, m, x, y, z, sx, sy, sz, parent) { var mesh = new THREE.Mesh(ballCache[r] || (ballCache[r] = new THREE.SphereGeometry(r, 24, 14)), m.isMaterial ? m : mat(m)); mesh.position.set(x, y, z); mesh.scale.set(sx || 1, sy || 1, sz || 1); return add(mesh, parent); }
     function capsule(r, len, m, x, y, z, parent) { var g = THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(r, len, 8, 16) : new THREE.CylinderGeometry(r, r, len + 2 * r, 16); var mesh = new THREE.Mesh(g, m.isMaterial ? m : mat(m)); mesh.position.set(x, y, z); return add(mesh, parent); }
@@ -119,6 +123,71 @@ import { createPainted } from './painted.js';
     function glow(color, size, x, y, z, op) { var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: color, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: op == null ? .5 : op, fog: false })); s.scale.set(size, size, 1); s.position.set(x, y, z); scene.add(s); return s; }
     function spriteSet(n, draw, size) { var tex = canvasTex(64, 64, draw), arr = []; for (var k = 0; k < n; k++) { var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0 })); sp.scale.set(size, size, 1); sp.userData.t = k / n; scene.add(sp); arr.push(sp); } return arr; }
     function emissive(col, i) { return new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: i || 3, roughness: .4 }); }
+
+    /* ---------- scanned materials: real wood grain, weave and pile, with normal and roughness maps ---------- */
+    var texLoader = new THREE.TextureLoader(), pbrCache = {};
+    var TEXMEAN = { dark_wood: '#5C2A17', wood_table_001: '#3D190A', old_wooden_floor_02: '#51300B', wool_boucle: '#756C60', curly_teddy_natural: '#E8D2BB', velour_velvet: '#AD2D47', brown_leather: '#502D0F' };
+    function pbrSet(name) {
+      if (pbrCache[name]) return pbrCache[name];
+      function ld(kind, srgb) { var t = texLoader.load(ASSET + 'tex/' + name + '_' + kind + '.jpg'); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); if (srgb) t.encoding = THREE.sRGBEncoding; return t; }
+      return pbrCache[name] = { map: ld('diff', true), normalMap: ld('nor'), roughnessMap: ld('rough') };
+    }
+    function tintFor(name, base) { var c = new THREE.Color(base), m = new THREE.Color(TEXMEAN[name]); return new THREE.Color(Math.min(2.5, c.r / m.r), Math.min(2.5, c.g / m.g), Math.min(2.5, c.b / m.b)); }
+    function pbrMat(name, base, o) {                 // o.tile: metres per texture repeat (boxes get real-size UVs); o.grainV: the texture's grain runs vertically
+      o = o || {}; var st = pbrSet(name), ns = o.normal == null ? 1 : o.normal;
+      var m = new THREE.MeshStandardMaterial({ color: base ? tintFor(name, base) : new THREE.Color(o.gain || 1, o.gain || 1, o.gain || 1), map: o.noMap ? null : st.map, normalMap: st.normalMap, normalScale: new THREE.Vector2(ns, ns), roughnessMap: o.flatRough ? null : st.roughnessMap, roughness: o.roughness == null ? 1 : o.roughness });
+      if (o.env != null) m.userData.env = o.env;
+      if (o.tile) { m.userData.metric = o.tile; m.userData.grainV = !!o.grainV; }
+      return m;
+    }
+    function metricUV(geo, tile, grainV, seed) {     // UVs in metres, with u along each face's longer side so grain follows the board
+      var p = geo.attributes.position, n = geo.attributes.normal; geo.computeBoundingBox();
+      var bb = geo.boundingBox, ext = [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z], ox = Math.abs(seed * 7.31) % 1, oy = Math.abs(seed * 3.77) % 1, out = new Float32Array(p.count * 2);
+      for (var i = 0; i < p.count; i++) {
+        var ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i)), k = ax > ay && ax > az ? 0 : ay > az ? 1 : 2;
+        var a = k === 0 ? 1 : 0, b = k === 2 ? 1 : 2; if (ext[b] > ext[a]) { var t = a; a = b; b = t; }
+        var P = [p.getX(i), p.getY(i), p.getZ(i)], u = P[a] / tile + ox, v = P[b] / tile + oy;
+        out[i * 2] = grainV ? v : u; out[i * 2 + 1] = grainV ? u : v;
+      }
+      geo.setAttribute('uv', new THREE.BufferAttribute(out, 2)); return geo;
+    }
+    function metricCylUV(geo, r, h, tile, grainV) {  // turned parts: grain runs along the length
+      var uv = geo.attributes.uv, circ = 2 * Math.PI * r;
+      for (var i = 0; i < uv.count; i++) { var u = uv.getX(i) * circ / tile, v = uv.getY(i) * h / tile; uv.setXY(i, grainV ? u : v, grainV ? v : u); }
+      return geo;
+    }
+    var gltfLoader = THREE.GLTFLoader ? new THREE.GLTFLoader() : null, gltfCache = {};
+    function model(name, parent, o) {                // a CC0 model, placed like any other prop; clicks reach it through the current tag
+      o = o || {}; var g = new THREE.Group(), hot = tag; g.position.set(o.x || 0, o.y || 0, o.z || 0); g.rotation.y = o.ry || 0; g.scale.setScalar(o.s || 1); (parent || scene).add(g);
+      if (!gltfLoader) return g;
+      if (!gltfCache[name]) gltfCache[name] = new Promise(function (res, rej) { gltfLoader.load(ASSET + 'models/' + name + '/' + name + '.json', function (gl) { res(gl.scene); }, undefined, rej); });
+      gltfCache[name].then(function (src) {
+        var m = src.clone(true);
+        m.traverse(function (c) {
+          if (!c.isMesh) return; c.castShadow = true; c.receiveShadow = true; if (hot) c.userData.hot = hot;
+          if (o.tint && (!o.tintOnly || o.tintOnly.test(c.material.name))) { c.material = c.material.clone(); c.material.color.set(o.tint); }
+          if (envMats.indexOf(c.material) < 0) { c.material.userData.env = o.env == null ? .5 : o.env; envMats.push(c.material); }
+        });
+        g.add(m);
+      }).catch(function () { /* the room still works without it */ });
+      return g;
+    }
+    // sculpted shapes: a signed-distance description is turned into one smooth surface (no seams between parts)
+    function sdEll(x, y, z, cx, cy, cz, rx, ry, rz) { var px = (x - cx) / rx, py = (y - cy) / ry, pz = (z - cz) / rz, k0 = Math.sqrt(px * px + py * py + pz * pz), k1 = Math.sqrt(px * px / (rx * rx) + py * py / (ry * ry) + pz * pz / (rz * rz)); return k1 ? k0 * (k0 - 1) / k1 : -Math.min(rx, ry, rz); }
+    function sdCap(x, y, z, a, b, ra, rb) { var pax = x - a[0], pay = y - a[1], paz = z - a[2], bax = b[0] - a[0], bay = b[1] - a[1], baz = b[2] - a[2], h = Math.max(0, Math.min(1, (pax * bax + pay * bay + paz * baz) / (bax * bax + bay * bay + baz * baz))); return Math.hypot(pax - bax * h, pay - bay * h, paz - baz * h) - (ra + (rb - ra) * h); }
+    function smin(a, b, k) { var h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * .25; }
+    function sculpt(sdf, cx, cy, cz, half, res, material, colorAt) {
+      if (!THREE.MarchingCubes) return new THREE.Mesh(new THREE.SphereGeometry(half * .5, 24, 16), material);
+      var mc = new THREE.MarchingCubes(res, material, false, false, 90000), f = mc.field, hs = res / 2;
+      for (var k = 0; k < res; k++) for (var j = 0; j < res; j++) for (var i = 0; i < res; i++) f[i + j * res + k * res * res] = -sdf(cx + (i - hs) / hs * half, cy + (j - hs) / hs * half, cz + (k - hs) / hs * half);
+      mc.isolation = 0; mc.update();
+      var n = mc.count, pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), src = mc.geometry.attributes.position.array, srcN = mc.geometry.attributes.normal.array;
+      for (var q = 0; q < n; q++) { pos[q * 3] = cx + src[q * 3] * half; pos[q * 3 + 1] = cy + src[q * 3 + 1] * half; pos[q * 3 + 2] = cz + src[q * 3 + 2] * half; var l = Math.hypot(srcN[q * 3], srcN[q * 3 + 1], srcN[q * 3 + 2]) || 1; nor[q * 3] = srcN[q * 3] / l; nor[q * 3 + 1] = srcN[q * 3 + 1] / l; nor[q * 3 + 2] = srcN[q * 3 + 2] / l; }
+      var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      if (colorAt) { var cols = new Float32Array(n * 3), c = new THREE.Color(); for (var v = 0; v < n; v++) { colorAt(pos[v * 3], pos[v * 3 + 1], pos[v * 3 + 2], c); cols[v * 3] = c.r; cols[v * 3 + 1] = c.g; cols[v * 3 + 2] = c.b; } geo.setAttribute('color', new THREE.BufferAttribute(cols, 3)); }
+      mc.geometry.dispose();
+      var mesh = new THREE.Mesh(geo, material); mesh.userData.noMerge = true; return mesh;
+    }
 
     /* ---------- procedural wood: colour grain + a matching bump map ---------- */
     function woodTex(base, o) {
@@ -149,9 +218,8 @@ import { createPainted } from './painted.js';
       return { map: map, bump: bump };
     }
     function woodMat(base, o) {
-      o = o || {}; var w = woodTex(base, o);
-      var m = mat('#ffffff', { map: w.map, bumpMap: w.bump, bumpScale: o.bumpScale || .25, roughness: o.roughness == null ? .5 : o.roughness, env: o.env == null ? .45 : o.env });
-      return m;
+      o = o || {}; var tex = o.tex || 'dark_wood';
+      return pbrMat(tex, o.raw ? null : base, { tile: o.tile || .8, grainV: tex === 'wood_table_001', env: o.env == null ? .45 : o.env, gain: o.gain, flatRough: o.roughness != null, roughness: o.roughness });
     }
 
     function muted(hex, sat, lum) { var n = parseInt(hex.slice(1), 16), r = n >> 16, g = n >> 8 & 255, b = n & 255, y = .3 * r + .59 * g + .11 * b; function f(c) { return Math.max(0, Math.min(255, Math.round((y + (c - y) * sat) * lum))); } return '#' + ((1 << 24) + (f(r) << 16) + (f(g) << 8) + f(b)).toString(16).slice(1); }
@@ -175,9 +243,7 @@ import { createPainted } from './painted.js';
       });
     }
     var spineA = spineTex(0), spineB = spineTex(1);
-    var floorWood = woodTex('#6A4630', { seed: 21, planks: 10, lines: 190 });
-    var floorTex = floorWood.map, floorBump = floorWood.bump;
-    floorTex.repeat.set(3, 3.5); floorBump.repeat.set(3, 3.5);
+    var floorM = pbrMat('old_wooden_floor_02', '#5E3C26', { env: .35 }); floorM.roughness = 1;
     var wallTex = canvasTex(512, 512, function (x, w, h) {
       var sd = 91; function r() { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; }
       x.fillStyle = '#4A382C'; x.fillRect(0, 0, w, h);
@@ -237,7 +303,7 @@ import { createPainted } from './painted.js';
     mark('textures');
     /* ---------- the hall ---------- */
     var X = 5, Z0 = -8, Z1 = 4, HH = 5.6, ZC = (Z0 + Z1) / 2, ZL = Z1 - Z0;
-    var floor = new THREE.Mesh(new THREE.BoxGeometry(2 * X + .4, .2, ZL + .4), new THREE.MeshStandardMaterial({ map: floorTex, bumpMap: floorBump, bumpScale: .3, roughness: .38 })); floor.position.set(0, -.1, ZC); add(floor, null, false);
+    var floor = new THREE.Mesh(metricUV(new THREE.BoxGeometry(2 * X + .4, .2, ZL + .4), 2.4, false, 0), floorM); floor.position.set(0, -.1, ZC); add(floor, null, false);
     var wallM = new THREE.MeshStandardMaterial({ map: wallTex, roughness: .95 });
     flat(2 * X + .4, HH + .2, .2, wallM, 0, HH / 2, Z0 - .1); flat(2 * X + .4, HH + .2, .2, wallM, 0, HH / 2, Z1 + .1);
     flat(.2, HH + .2, ZL + .4, wallM, -X - .1, HH / 2, ZC); flat(.2, HH + .2, ZL + .4, wallM, X + .1, HH / 2, ZC);
@@ -317,7 +383,7 @@ import { createPainted } from './painted.js';
     }
     var SPINES = [[0, '#5A2A2E'], [0, '#2C3A55'], [0, '#3B4A3C'], [0, '#6B4A32'], [1, '#26324A'], [1, '#4A2B3A'], [1, '#6E3B34'], [2, '#D8C7A5'], [2, '#C9B48C'], [3, '#6E3B34'], [3, '#2E3B52'], [4, '#8A6A45'], [4, '#9A7B4F'], [5, '#40201F'], [5, '#243B2E'], [1, '#D9B3B0'], [4, '#E8D8C8'], [2, '#B98A8C'], [0, '#7A4B52'], [4, '#4A5A48']];
     var bookGeo = new RB(1, 1, 1, 2, .045), bookCap = 340;
-    function mkBook(t, hot) { var m = new THREE.InstancedMesh(bookGeo, new THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: .5, roughness: .62 }), bookCap); m.castShadow = false; m.receiveShadow = true; m.frustumCulled = false; m.userData.hot = 'library'; m.userData.n = 0; return m; }
+    function mkBook(t, hot) { var m = new THREE.InstancedMesh(bookGeo, new THREE.MeshStandardMaterial({ map: t, normalMap: pbrSet('brown_leather').normalMap, normalScale: new THREE.Vector2(.45, .45), roughness: .62 }), bookCap); m.castShadow = false; m.receiveShadow = true; m.frustumCulled = false; m.userData.hot = 'library'; m.userData.n = 0; return m; }
     var uprights = SPINES.map(function (s, i) { return mkBook(spineCanvas(s[0], s[1], 17 + i * 53)); });
     var flatBooks = ['#4A2B3A', '#26324A', '#6B4A32', '#3B4A3C', '#D9B3B0', '#8A4A50'].map(function (c, i) { return mkBook(coverCanvas(c, 5 + i * 31)); });
     var bookMeshes = uprights.concat(flatBooks);
@@ -652,7 +718,7 @@ import { createPainted } from './painted.js';
       for (var sp = -2; sp <= 2; sp++) cyl(.008, .008, .19, wd, sp * .085, .835, .22, 8, g);
       return g;
     }
-    var deskWood = woodMat('#553622', { seed: 31, roughness: .55, env: .3, bumpScale: .02, contrast: .55, lines: 160 });
+    var deskWood = woodMat(null, { tex: 'wood_table_001', raw: true, gain: 1.5, tile: 1.2, env: .28, roughness: .5 });
     function table(x, z, len, wdt, o) {
       o = o || {}; var top = o.wood || peach, dk = shelfDark;
       box(wdt + .08, .026, len + .08, top, x, .792, z, null, true, .05);                  // overhanging moulded lip (surface stays at .805)
@@ -681,7 +747,6 @@ import { createPainted } from './painted.js';
     /* ---------- YOUR table ---------- */
     tag = null;
     var DX = 0, DZ = -.55, DY = .8;
-    deskWood.map.repeat.set(2, 4); deskWood.bumpMap.repeat.set(2, 4);
     table(DX, DZ + .6, 1.42, 2.3, { wood: deskWood });
     tag = 'lamp';
     var al = armLamp(DX - .74, DY, DZ + .2, 0);
@@ -870,33 +935,47 @@ import { createPainted } from './painted.js';
     }
     function bunny(x, y, z, sc, rotY) {
       var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY || 0; g.scale.setScalar(sc || 1); scene.add(g);
-      var cer = mat('#F7F0E6', { roughness: .32, env: .6 });
-      ball(.05, cer, 0, .055, 0, 1, 1.1, .9, g); ball(.036, cer, 0, .13, .012, 1, .95, .95, g); ball(.018, cer, 0, .03, -.045, 1, 1, 1, g);
-      [-.017, .017].forEach(function (ex, i) { var ear = capsule(.0105, .045, cer, ex, .19, 0, g); ear.rotation.z = (i ? -1 : 1) * .15; });
+      var cer = new THREE.MeshPhysicalMaterial({ color: '#F4EDE2', roughness: .28, clearcoat: .6, clearcoatRoughness: .25 });
+      var bun = sculpt(function (x, y, z) {
+        var d = sdEll(x, y, z, 0, .05, 0, .048, .052, .042);
+        d = smin(d, sdEll(x, y, z, 0, .122, .01, .036, .033, .033), .03);
+        d = smin(d, sdEll(x, y, z, 0, .022, -.04, .018, .018, .018), .02);
+        d = smin(d, sdEll(x, y, z, -.022, .028, .03, .016, .012, .02), .015); d = smin(d, sdEll(x, y, z, .022, .028, .03, .016, .012, .02), .015);
+        d = smin(d, sdCap(x, y, z, [-.012, .145, .004], [-.024, .215, -.004], .011, .008), .016); d = smin(d, sdCap(x, y, z, [.012, .145, .004], [.024, .215, -.004], .011, .008), .016);
+        return Math.max(d, -y);
+      }, 0, .11, 0, .125, 56, cer);
+      bun.castShadow = true; add(bun, g);
       [-.013, .013].forEach(function (ex) { ball(.004, '#2A1E1C', ex, .135, .045, 1, 1, 1, g); });
       ball(.006, '#E9A6AC', 0, .124, .047, 1, .8, .8, g);
       bow(g, 0, .095, .03, .8, 0);
       return g;
     }
-    function titleSpineTex(title, col, ink) {
-      return canvasTex(512, 128, function (x, w, h) {
-        var gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,.06)'); gr.addColorStop(1, 'rgba(0,0,0,.3)');
-        x.fillStyle = col; x.fillRect(0, 0, w, h); x.fillStyle = gr; x.fillRect(0, 0, w, h);
-        for (var k = 0; k < 600; k++) { x.fillStyle = 'rgba(255,255,255,' + (.02 + (k % 4) * .01) + ')'; x.fillRect((k * 37) % w, (k * 53) % h, 2, 1); }
-        x.strokeStyle = ink; x.lineWidth = 3; x.strokeRect(14, 14, w - 28, h - 28); x.lineWidth = 1.5; x.strokeRect(22, 22, w - 44, h - 44);
-        x.fillStyle = ink; x.font = 'italic 600 46px "Young Serif", Georgia, serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(title, w / 2, h / 2 + 3);
+    function titleSpineTex(title, col, ink) {         // drawn upright: it wraps the rounded spine, title running along it
+      return canvasTex(160, 640, function (x, w, h) {
+        x.fillStyle = col; x.fillRect(0, 0, w, h);
+        for (var k = 0; k < 1400; k++) { x.fillStyle = k % 2 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.06)'; x.fillRect((k * 37) % w, (k * 53) % h, 2, 2); }
+        var sh = x.createLinearGradient(0, 0, w, 0); sh.addColorStop(0, 'rgba(0,0,0,.35)'); sh.addColorStop(.5, 'rgba(255,255,255,.06)'); sh.addColorStop(1, 'rgba(0,0,0,.35)'); x.fillStyle = sh; x.fillRect(0, 0, w, h);
+        x.fillStyle = ink; [36, 46, h - 50, h - 40].forEach(function (y) { x.fillRect(18, y, w - 36, 3); });
+        x.save(); x.translate(w / 2, h / 2); x.rotate(Math.PI / 2); x.font = 'italic 600 54px "Young Serif", Georgia, serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(title, 0, 4); x.restore();
       });
     }
+    var pageEdgeTex = canvasTex(256, 64, function (x, w, h) { x.fillStyle = '#EDE2CB'; x.fillRect(0, 0, w, h); for (var k = 0; k < h; k += 2) { x.fillStyle = 'rgba(120,96,70,' + (.05 + (k * 7 % 5) * .02) + ')'; x.fillRect(0, k, w, 1); } });
     function titledBook(title, col, w, h, d, x, y, z, rotY) {
-      var edge = mat(col, { roughness: .55, env: .4 }), pages = mat('#EFE3CA', { roughness: .9 });
-      var face = new THREE.MeshStandardMaterial({ map: titleSpineTex(title, col, '#E6C77C'), roughness: .5, envMapIntensity: .5 });
-      var mesh = new THREE.Mesh(geoBox(w, h, d, .03), [edge, edge, edge, edge, face, pages]); mesh.position.set(x, y, z); mesh.rotation.y = rotY; return add(mesh, null, true);
+      var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; scene.add(g);
+      var lth = pbrSet('brown_leather').normalMap, cover = new THREE.MeshStandardMaterial({ color: col, roughness: .62, normalMap: lth, normalScale: new THREE.Vector2(.5, .5) }), bd = .007;
+      var pages = new THREE.MeshStandardMaterial({ map: pageEdgeTex, roughness: .95 });
+      box(w, bd, d, cover, 0, -h / 2 + bd / 2, 0, g, true, .012); box(w, bd, d, cover, 0, h / 2 - bd / 2, 0, g, true, .012);   // boards
+      box(w - .014, h - 2 * bd, d - .012, pages, -.001, 0, -.004, g, true, .004);                                               // page block, set in
+      var sg = new THREE.CylinderGeometry(h / 2, h / 2, w, 28, 1, true, -Math.PI / 2, Math.PI); sg.rotateZ(Math.PI / 2);
+      var spine = new THREE.Mesh(sg, new THREE.MeshStandardMaterial({ map: titleSpineTex(title, col, '#D9BC78'), roughness: .55, normalMap: lth, normalScale: new THREE.Vector2(.35, .35), side: THREE.DoubleSide }));
+      spine.scale.z = .32; spine.position.z = d / 2 - .006; add(spine, g, true);
+      return g;
     }
     tag = 'reading';
     var BKX = DX - .7, BKZ = DZ + .72;
-    titledBook('Dream Big', '#2A3550', .32, .07, .23, BKX, DY + .035, BKZ, .06);
-    titledBook('Study Hard', '#2F3A55', .30, .07, .22, BKX + .01, DY + .105, BKZ, -.05);
-    titledBook('Be Happy \u2661', '#33503F', .29, .07, .21, BKX - .01, DY + .175, BKZ, .08);
+    titledBook('Be Happy \u2661', '#3A4150', .32, .07, .23, BKX, DY + .035, BKZ, .06);            // stacked like the painting: Dream Big on top
+    titledBook('Study Hard', '#3D4556', .30, .07, .22, BKX + .01, DY + .105, BKZ, -.05);
+    titledBook('Dream Big', '#41475A', .29, .07, .21, BKX - .01, DY + .175, BKZ, .08);
     tag = null;
     flowerJar(DX - .5, DY, DZ + .12, 1.0);
     tag = 'candle'; candleJar(DX + .68, DY, DZ + .68); tag = null;
@@ -982,7 +1061,7 @@ import { createPainted } from './painted.js';
     var pm = new THREE.Mesh(new THREE.PlaneGeometry(1.0, .76), new THREE.MeshStandardMaterial({ map: paint, roughness: .9 })); pm.position.set(FX + .675, 2.3, FZ); pm.rotation.y = Math.PI / 2; add(pm, null, false);
     var velvetBump = canvasTex(128, 128, function (x, w, h) { x.fillStyle = '#808080'; x.fillRect(0, 0, w, h); for (var k = 0; k < 6000; k++) { x.fillStyle = 'rgba(' + (k % 2 ? '255,255,255' : '0,0,0') + ',' + (.03 + (k % 7) * .01) + ')'; x.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5); } }, true);
     velvetBump.wrapS = velvetBump.wrapT = THREE.RepeatWrapping; velvetBump.repeat.set(10, 10);
-    function velvetM(c) { return new THREE.MeshPhysicalMaterial({ color: c, roughness: .9, bumpMap: velvetBump, bumpScale: .3, sheen: .6, sheenRoughness: .5, sheenColor: new THREE.Color('#C9A0A0') }); }
+    function velvetM(c) { var st = pbrSet('velour_velvet'); return new THREE.MeshPhysicalMaterial({ color: c, roughness: .9, normalMap: st.normalMap, normalScale: new THREE.Vector2(.7, .7), sheen: .7, sheenRoughness: .45, sheenColor: new THREE.Color(c).lerp(new THREE.Color('#F2D2C0'), .5) }); }
     var plaidTex = canvasTex(128, 128, function (x, w, h) {
       x.fillStyle = '#7A2A30'; x.fillRect(0, 0, w, h);
       x.fillStyle = 'rgba(232,214,184,.9)'; x.fillRect(0, 20, w, 5); x.fillRect(20, 0, 5, h); x.fillStyle = 'rgba(232,214,184,.5)'; x.fillRect(0, 84, w, 3); x.fillRect(84, 0, 3, h);
@@ -991,25 +1070,11 @@ import { createPainted } from './painted.js';
       for (var k = 0; k < w; k += 2) { x.fillStyle = 'rgba(0,0,0,.07)'; x.fillRect(k, 0, 1, h); x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(0, k, w, 1); }
     });
     plaidTex.wrapS = plaidTex.wrapT = THREE.RepeatWrapping; plaidTex.repeat.set(2, 2);
-    var plaidM = new THREE.MeshStandardMaterial({ map: plaidTex, bumpMap: plaidTex, bumpScale: .4, roughness: 1 });
+    var plaidM = (function () { var st = pbrSet('wool_boucle'), mp = st.map.clone(), nm = st.normalMap.clone(); [mp, nm].forEach(function (t) { t.repeat.set(1.6, 1.6); t.needsUpdate = true; }); return new THREE.MeshStandardMaterial({ color: new THREE.Color('#E9C7A6'), map: mp, normalMap: nm, roughness: .95 }); })();
     var legWood = mat('#2A170D', { roughness: .4, env: .6 }), nailM = mat('#CDA85E', { metalness: .9, roughness: .3, env: 1.2 });
-    function armchair(x, z, rotY, body, trim) {
+    function armchair(x, z, rotY, body) {             // a carved, buttoned armchair (CC0 model), upholstered in the room's brown velvet
       var g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
-      var v = velvetM(body), v2 = velvetM(trim || body);
-      box(1.08, .3, .92, v, 0, .36, 0, g, true, .16);                                      // base
-      box(.84, .17, .76, v2, 0, .58, -.05, g, true, .1);                                   // seat cushion
-      ball(.32, v2, 0, .64, -.05, 1.25, .2, 1.1, g);                                       // puffed top
-      var back = box(1.04, 1.08, .24, v, 0, .94, .4, g, true, .16); back.rotation.x = -.1;  // back
-      box(.74, .64, .17, v2, 0, .9, .26, g, true, .12).rotation.x = -.1;                   // back cushion
-      [-1, 1].forEach(function (s) {
-        var arm = capsule(.15, .66, v, s * .52, .58, -.02, g); arm.rotation.x = Math.PI / 2; arm.scale.x = .95;
-        ball(.15, v, s * .52, .58, -.36, 1, 1, .9, g);                                     // rolled front
-        box(.14, .86, .34, v, s * .55, .98, .36, g, true, .1);                             // wing
-        [[-.3, .66], [.3, .66]].forEach(function (p) { ball(.012, nailM, s * .54 + (s > 0 ? .07 : -.07) * 0, p[1] - .06, -.4 + p[0] * 0, 1, 1, 1, g).castShadow = false; });
-      });
-      for (var bi = 0; bi < 3; bi++) for (var bj = 0; bj < 3; bj++) ball(.015, mat(new THREE.Color(body).multiplyScalar(.45).getStyle(), { roughness: .8 }), -.2 + bi * .2, .74 + bj * .14, .17 + bj * .006, 1, 1, .6, g).castShadow = false;
-      for (var nx = -.47; nx <= .47; nx += .1) ball(.011, nailM, nx, .24, -.465, 1, 1, .7, g).castShadow = false;       // brass nailheads
-      [[-.44, -.38], [.44, -.38], [-.44, .36], [.44, .36]].forEach(function (p) { var lg = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [.03, 0], [.034, .02], [.022, .05], [.03, .08], [.022, .1], [0, .1]].map(function (q) { return new THREE.Vector2(q[0], q[1]); }), 14), legWood); lg.position.set(p[0], .08, p[1]); lg.scale.y = 1.2; lg.position.y = .0; add(lg, g, true); });
+      model('ArmChair_01', g, { ry: Math.PI, s: 1.15, tint: body, env: .35 });
       return g;
     }
     function throwOn(g, x, y, z, rx, rz, ry, w, d) { var m = box(w, .05, d, plaidM, x, y, z, g, true, .02); m.rotation.set(rx, ry || 0, rz); var fr = box(w, .02, .05, mat('#E4D8BE', { roughness: 1 }), 0, 0, d / 2 + .02, m, false, .01); return m; }
@@ -1061,11 +1126,11 @@ import { createPainted } from './painted.js';
       [[0, 0, .5, .34], [.28, .12, .22, .2], [-.3, -.14, .24, .22], [.2, -.2, .2, .17], [-.22, .2, .18, .16]].forEach(function (l) { var m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 10), wm); m.scale.set(l[2], .035, l[3]); m.position.set(l[0], 0, l[1]); m.receiveShadow = true; g.add(m); });
     }
     var arm = armchair(-3.25, 1.55, Math.PI / 2 + .35, '#5C3526', '#6B3F2D');
-    pillow(arm, .22, .92, .17, .46, .4, .15, '#E2B8B8', [-.3, .2, .1], 'plain'); pillow(arm, -.18, .86, .2, .4, .38, .14, '#A9B49A', [-.25, -.25, -.12], 'knit'); pillow(arm, .02, .8, .02, .34, .3, .13, '#F0E4D0', [-.55, .1, .35], 'floral');
+    pillow(arm, .22, .7, .2, .46, .4, .15, '#E2B8B8', [-.3, .2, .1], 'plain'); pillow(arm, -.18, .66, .22, .4, .38, .14, '#A9B49A', [-.25, -.25, -.12], 'knit'); pillow(arm, .02, .62, .08, .34, .3, .13, '#F0E4D0', [-.55, .1, .35], 'floral');
     var knit = canvasTex(64, 64, function (x) { x.fillStyle = '#6E1F28'; x.fillRect(0, 0, 64, 64); x.fillStyle = 'rgba(214,196,160,.85)'; x.fillRect(0, 14, 64, 4); x.fillRect(14, 0, 4, 64); x.fillStyle = 'rgba(20,30,50,.55)'; x.fillRect(0, 36, 64, 12); x.fillRect(36, 0, 12, 64); x.fillStyle = 'rgba(0,0,0,.06)'; for (var k = 0; k < 64; k += 3) x.fillRect(k, 0, 1, 64); });
     knit.wrapS = knit.wrapT = THREE.RepeatWrapping; knit.repeat.set(3, 3);
     var blanketM = new THREE.MeshStandardMaterial({ map: knit, roughness: 1 });
-    throwOn(arm, -.25, .98, .48, -1.15, 0, -.1, .6, .9); throwOn(arm, -.25, .78, 0, 0, 0, -.1, .6, .5);
+    throwOn(arm, -.25, .86, .36, -1.25, 0, -.1, .6, .7); throwOn(arm, -.25, .56, .02, 0, 0, -.1, .6, .5);
     var TX = -3.35, TZ = .25;
     cyl(.32, .32, .05, peach, TX, .6, TZ, 48); capsule(.04, .5, '#6B4128', TX, .3, TZ); cyl(.2, .23, .04, '#6B4128', TX, .02, TZ, 32);
     var potM = mat('#F7EEDD', { roughness: .3 });
@@ -1123,8 +1188,9 @@ import { createPainted } from './painted.js';
       }
       return g;
     }
-    function plant(x, z, s, potCol) {
-      leafPlant(x, 0, z, s * 2.6, potCol === cream ? '#B7A07A' : null, 28);
+    var plantN = 0;
+    function plant(x, z, s) {                         // floor plants in terracotta pots (CC0 models)
+      var big = plantN++ % 2 === 0; model(big ? 'potted_plant_01' : 'potted_plant_02', scene, { x: x, z: z, s: big ? s * 1.05 : s * 1.55, ry: x * 2.3 + z, env: .3 });
     }
     plant(-1.35, Z0 + .55, .9, cream); plant(1.35, Z0 + .55, .9, lilac); plant(X - .75, 2.0, 1.05, butter); plant(-1.9, Z1 - .5, .8, mint);
 
@@ -1132,45 +1198,54 @@ import { createPainted } from './painted.js';
     tag = 'cat';
     var knitC = canvasTex(128, 128, function (x, w, h) { x.fillStyle = '#EBDAD2'; x.fillRect(0, 0, w, h); x.fillStyle = '#D9A5A3'; for (var r = 0; r < h; r += 32) x.fillRect(0, r, w, 14); x.fillStyle = 'rgba(0,0,0,.06)'; for (var k = 0; k < w; k += 4) x.fillRect(k, 0, 2, h); });
     knitC.wrapS = knitC.wrapT = THREE.RepeatWrapping; knitC.repeat.set(3, 2);
-    var cushion = ball(.33, new THREE.MeshStandardMaterial({ map: knitC, bumpMap: knitC, bumpScale: .5, roughness: 1 }), DX + .56, DY + .035, DZ + .18, .82, .24, .66);
-    var cat = new THREE.Group(); cat.position.set(DX + .56, DY + .08, DZ + .18); cat.rotation.y = -.3; cat.scale.setScalar(.42); scene.add(cat);
-    var furTexC = canvasTex(256, 256, function (x, w, h) {
-      x.fillStyle = '#A8733E'; x.fillRect(0, 0, w, h);
-      var fs = 17; function fr() { fs = (fs * 16807) % 2147483647; return (fs - 1) / 2147483646; }
-      for (var f = 0; f < 12000; f++) { x.strokeStyle = f % 3 ? 'rgba(255,225,180,.08)' : 'rgba(40,22,10,.12)'; x.lineWidth = 1; var fx = fr() * w, fy = fr() * h, an = (fr() - .5) * 1.6; x.beginPath(); x.moveTo(fx, fy); x.lineTo(fx + Math.cos(an) * 7, fy + Math.sin(an) * 7); x.stroke(); }
+    var cushion = ball(.33, pbrMat('curly_teddy_natural', '#EADBC8', { normal: 1.2 }), DX + .56, DY + .035, DZ + .18, .82, .24, .66);
+    var cat = new THREE.Group(); cat.position.set(DX + .56, DY + .1, DZ + .18); cat.rotation.y = -.47; cat.scale.setScalar(.88); scene.add(cat);
+    var furM = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .92, sheen: 1, sheenRoughness: .55, sheenColor: new THREE.Color('#FFE6CC') });
+    function catSdf(x, y, z) {
+      var R = .11, d = 1e9, prev = null;
+      for (var a = 175; a <= 365; a += 19) {                                              // the spine curls round the back, hip on the left, shoulders on the right
+        var r = a * Math.PI / 180, pt = [Math.cos(r) * R, .085, Math.sin(r) * R * .95], rad = .092 - Math.abs(a - 270) / 95 * .006;
+        if (prev) d = smin(d, sdCap(x, y, z, prev[0], pt, prev[1], rad), .03); prev = [pt, rad];
+      }
+      d = smin(d, sdEll(x, y, z, 0, .068, -.012, .1, .068, .085), .05);                  // filled in the middle of the curl
+      d = smin(d, sdEll(x, y, z, -.112, .088, -.004, .1, .098, .098), .05);              // haunch
+      d = smin(d, sdEll(x, y, z, -.075, .03, .1, .058, .028, .034), .03);                // hind paw
+      d = smin(d, sdEll(x, y, z, .055, .03, .128, .06, .027, .034), .025);               // front paws, the head rests on them
+      d = smin(d, sdEll(x, y, z, .115, .03, .1, .052, .027, .032), .025);
+      var T = [[-.19, .05, -.07], [-.215, .042, .05], [-.135, .036, .14], [-.02, .032, .165], [.06, .03, .165]];
+      for (var t = 0; t < T.length - 1; t++) d = smin(d, sdCap(x, y, z, T[t], T[t + 1], .033 - t * .002, .031 - t * .002), .025);   // the tail wraps round the front
+      return Math.max(d, .004 - y);                                                       // flat underneath, settled into the bed
+    }
+    function catHeadSdf(x, y, z) {
+      var d = sdEll(x, y, z, 0, .004, 0, .074, .064, .068);
+      d = smin(d, sdEll(x, y, z, 0, -.018, .012, .082, .05, .066), .04);                 // full cheeks
+      d = smin(d, sdEll(x, y, z, 0, -.026, .058, .03, .023, .026), .025);                // muzzle
+      return d;
+    }
+    function surfaceZ(sdf, x, y) { for (var zz = .2; zz > -.05; zz -= .0008) if (sdf(x, y, zz) < 0) return zz; return 0; }
+    var cW = new THREE.Color('#F7F1E8'), cG = new THREE.Color('#E08E46'), cS = new THREE.Color('#B9682E');
+    function sm2(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+    function catColor(x, y, z, c) {                   // ginger back with soft tabby bands; white chest, paws, belly front and tail tip
+      var white = sm2(.03, .09, z) * sm2(.11, .06, y) + sm2(.06, .03, y) * sm2(.07, .1, z) + sm2(.02, .06, x) * sm2(.13, .15, z) * sm2(.06, .04, y);
+      var ph = Math.atan2(z, x), stripe = Math.pow(Math.max(0, Math.sin(ph * 17)), 3) * sm2(.09, .15, y) * sm2(.04, -.02, z);
+      c.copy(cG).lerp(cS, stripe * .6).lerp(cW, Math.min(1, white));
+      c.offsetHSL(0, 0, Math.sin(x * 210 + y * 170 + z * 190) * .012);
+    }
+    var catBody = sculpt(catSdf, -.02, .1, .02, .27, 76, furM, catColor); add(catBody, cat);
+    var HEADY = .118, head = new THREE.Group(); head.position.set(.085, HEADY, .088); head.rotation.set(.12, .1, -.12); cat.add(head);
+    var headM = sculpt(catHeadSdf, 0, -.005, .02, .11, 60, furM, function (x, y, z, c) {
+      var w = sm2(-.004, -.02, y) * sm2(.02, .045, z) + sm2(.014, .006, Math.abs(x)) * sm2(.045, .06, z) * sm2(.03, .01, y);
+      c.copy(cG).lerp(cS, Math.pow(Math.max(0, Math.sin(x * 95)), 3) * sm2(.025, .055, y) * .55).lerp(cW, Math.min(1, w));
     });
-    furTexC.wrapS = furTexC.wrapT = THREE.RepeatWrapping; furTexC.repeat.set(5, 3);
-    var fur = new THREE.MeshStandardMaterial({ map: furTexC, bumpMap: furTexC, bumpScale: .25, roughness: 1 }), furDark = mat('#6E4520', { roughness: 1, env: .1 }), furLight = mat('#D9C3A0', { roughness: 1, env: .1 });
-    var catBody = ball(.42, fur, 0, .2, 0, 1, .52, .78, cat);
-    ball(.1, furDark, -.05, .38, -.05, 1.6, .25, 1.4, cat); ball(.12, furDark, -.2, .34, .1, 1.2, .22, 1, cat);
-    var tail = new THREE.Mesh(new THREE.TorusGeometry(.36, .065, 12, 32, Math.PI * 1.05), fur); tail.rotation.x = -Math.PI / 2; tail.rotation.z = 2.2; tail.position.set(0, .08, .05); add(tail, cat);
-    var head = new THREE.Group(); head.position.set(.38, .2, .22); cat.add(head);
-    ball(.21, fur, 0, 0, 0, 1, .92, 1, head); ball(.11, furLight, .12, -.06, .1, 1, .7, 1, head);
-    var earL = new THREE.Mesh(new THREE.ConeGeometry(.075, .15, 16), fur); earL.position.set(-.04, .19, -.09); earL.rotation.set(-.3, 0, .1); add(earL, head);
-    var earR = new THREE.Mesh(new THREE.ConeGeometry(.075, .15, 16), fur); earR.position.set(.1, .18, .05); earR.rotation.set(.3, 0, -.35); add(earR, head);
-    var dark = mat('#4A3020');
-    var eye1 = new THREE.Mesh(new THREE.TorusGeometry(.028, .008, 6, 12, Math.PI), dark); eye1.position.set(.15, .04, .1); eye1.rotation.set(0, -.8, Math.PI); add(eye1, head, false);
-    var eye2 = new THREE.Mesh(new THREE.TorusGeometry(.028, .008, 6, 12, Math.PI), dark); eye2.position.set(.08, .04, .16); eye2.rotation.set(0, -.8, Math.PI); add(eye2, head, false);
-    ball(.018, '#A9645C', .19, -.03, .16, 1, 1, 1, head);
-    ball(.035, '#C98A80', .17, -.01, .02, 1, .6, 1, head); ball(.035, '#C98A80', .02, -.01, .19, 1, .6, 1, head);
-    var furV = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
-    (function paintCalico() {        // white, orange and cream patches painted per vertex so they never stretch
-      var cw = new THREE.Color('#F1E5D1'), co = new THREE.Color('#D99A5A'), cd = new THREE.Color('#C48650'), c = new THREE.Color();
-      function sm(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
-      function nz(px, py, pz) { return Math.sin(px * 6.1 + 1.3) * Math.sin(py * 5.3 + .7) + Math.sin(pz * 6.7 + 2.1) * Math.sin(px * 4.1 + py * 3.7) + .5 * Math.sin((px + pz) * 9.3); }
-      cat.traverse(function (o) {
-        if (!o.isMesh || o.material !== fur) return;
-        o.updateMatrix(); var pos = o.geometry.attributes.position, cols = new Float32Array(pos.count * 3), v = new THREE.Vector3();
-        for (var i = 0; i < pos.count; i++) {
-          v.fromBufferAttribute(pos, i).applyMatrix4(o.matrix); var n = nz(v.x, v.y, v.z);
-          n += Math.sin(v.x * 23 + v.z * 17) * .12 + Math.sin(v.y * 31 + v.x * 11) * .1;
-          c.copy(cw).lerp(co, sm(.45, .95, Math.min(n, 1.1)) * .8).lerp(cd, sm(1.3, 2.2, n) * .2);
-          c.offsetHSL(0, 0, (Math.sin(v.x * 140 + v.y * 110 + v.z * 130) * .5 + .5) * .05 - .025);
-          cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
-        }
-        o.geometry.setAttribute('color', new THREE.BufferAttribute(cols, 3)); o.material = furV;
-      });
-    })();
+    add(headM, head);
+    var earM = new THREE.MeshPhysicalMaterial({ color: '#CF8649', roughness: .9, sheen: 1, sheenRoughness: .5, sheenColor: new THREE.Color('#FFE0C0') }), earIn = mat('#E8B3A6', { roughness: .9 });
+    [-1, 1].forEach(function (sd) {
+      var ear = new THREE.Mesh(new THREE.ConeGeometry(.03, .056, 24), earM); ear.position.set(sd * .045, .058, -.008); ear.rotation.set(-.15, 0, -sd * .38); ear.scale.z = .55; add(ear, head);
+      var inner = new THREE.Mesh(new THREE.ConeGeometry(.02, .04, 20), earIn); inner.position.set(sd * .043, .054, .0); inner.rotation.copy(ear.rotation); inner.scale.z = .3; add(inner, head, false);
+    });
+    var lidM = mat('#4A2F22', { roughness: .7 });
+    [-1, 1].forEach(function (sd) { var ex = sd * .03, ey = .002, lid = new THREE.Mesh(new THREE.TorusGeometry(.011, .0021, 6, 18, Math.PI), lidM); lid.position.set(ex, ey, surfaceZ(catHeadSdf, ex, ey) + .001); lid.rotation.set(0, sd * .35, Math.PI); add(lid, head, false); });
+    ball(.0065, '#C97F78', 0, -.017, surfaceZ(catHeadSdf, 0, -.017) - .002, 1.2, .8, 1, head);   // nose
     tag = null;
     var zzz = spriteSet(3, function (x) { x.fillStyle = '#FFF6E2'; x.font = 'italic 400 50px "Young Serif", Georgia, serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('z', 32, 34); }, .15);
     var hearts = spriteSet(5, function (x) { x.fillStyle = '#F07A93'; x.font = '50px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('♥', 32, 36); }, .15);
@@ -1283,20 +1358,15 @@ import { createPainted } from './painted.js';
     var laceTex = canvasTex(128, 128, function (x, w) { x.fillStyle = '#F4ECDD'; x.beginPath(); x.arc(64, 64, 62, 0, 7); x.fill(); x.globalCompositeOperation = 'destination-out'; for (var i = 0; i < 16; i++) { var a = i / 16 * 6.283; x.beginPath(); x.arc(64 + Math.cos(a) * 52, 64 + Math.sin(a) * 52, 7, 0, 7); x.fill(); x.beginPath(); x.arc(64 + Math.cos(a + .2) * 36, 64 + Math.sin(a + .2) * 36, 4, 0, 7); x.fill(); } x.beginPath(); x.arc(64, 64, 24, 0, 7); x.fill(); x.fillStyle = '#000'; x.beginPath(); x.arc(64, 64, 8, 0, 7); x.fill(); });
     function doily(x, y, z, r) { var m = new THREE.Mesh(new THREE.CircleGeometry(r, 40), new THREE.MeshStandardMaterial({ map: laceTex, transparent: true, roughness: 1, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.set(x, y + .002, z); m.receiveShadow = true; scene.add(m); }
     function floorStack(x, z, ry, cols, y0) { var yy = y0 || 0; cols.forEach(function (c, i) { var h = .045 + (i % 2) * .03, w = .3 - i * .03, d = .22 - i * .015; var b = box(w, h, d, mat(c, { roughness: .6, bumpMap: velvetBump, bumpScale: .4 }), x + (i % 2 ? .01 : -.008), yy + h / 2 + .012, z, null, true, .02); b.rotation.y = ry + (i - 1) * .15; yy += h; }); return yy; }
-    function sideTable(x, z) {
-      cyl(.3, .3, .035, peach, x, .62, z, 48); cyl(.04, .055, .52, '#3A2416', x, .34, z, 16); cyl(.045, .12, .06, '#3A2416', x, .08, z, 20);
-      [0, 1, 2].forEach(function (i) { var a = i * 2.094 + .5; var lg = capsule(.025, .2, '#3A2416', x + Math.cos(a) * .15, .04, z + Math.sin(a) * .15); lg.rotation.set(Math.sin(a) * .9, 0, -Math.cos(a) * .9); });
-    }
+    function sideTable(x, z) { model('side_table_tall_01', scene, { x: x, z: z, s: .84, env: .45 }); }   // top at .64, like before
 
     // left corner: armchair gets the realistic build; ottoman + blush pillow
     // (the chair itself is created at the original spot below)
 
     // right corner
     var arm2 = armchair(-.75, -5.0, Math.PI - .3, '#5C3526', '#6B3F2D');
-    drape(arm2, .15, 1.0, .34, .66, 1.0, -1.1, .08, knitM, .55);
-    pillow(arm2, -.24, .9, .15, .44, .4, .15, '#EFE3CF', [-.25, .25, .12], 'plain'); pillow(arm2, .24, .84, .1, .38, .34, .13, '#C9A0A4', [-.35, -.2, -.1], 'velvet'); pillow(arm2, -.02, .76, -.02, .32, .28, .12, '#E8DAC4', [-.6, .1, .2], 'floral');
-    drape(arm2, .55, .78, -.02, .3, .6, .1, 0, plaidM, .6);
-    ottoman(-.05, -4.35, .4, '#5A3A2E');
+    pillow(arm2, -.2, .7, .2, .44, .4, .15, '#EFE3CF', [-.25, .25, .12], 'plain'); pillow(arm2, .22, .66, .18, .38, .34, .13, '#C9A0A4', [-.35, -.2, -.1], 'velvet'); pillow(arm2, -.02, .62, .08, .32, .28, .12, '#E8DAC4', [-.6, .1, .2], 'floral');
+        ottoman(-.05, -4.35, .4, '#5A3A2E');
     floorLamp(1.2, -5.25, 1.55);
     sideTable(.5, -5.2); doily(.5, .64, -5.2, .22); teacup(null, .62, .64, -5.08, 1, .3);
     flowerVase(null, .42, .64, -5.28, 1.1, 'peony', 'blush', .4);
@@ -1540,9 +1610,9 @@ import { createPainted } from './painted.js';
       if (playing && !reduce) platter.rotation.y -= dt * 3.5;
       notes.forEach(function (n, i) { n.userData.t = (n.userData.t + dt * .28) % 1; var uu = n.userData.t; n.position.set(RX + .15 + Math.sin(uu * 5 + i * 2) * .18, 1.6 + uu * .8, RZ - .3); n.material.opacity = playing ? Math.sin(uu * Math.PI) * .9 : 0; });
       var br = reduce ? 0 : Math.sin(t * (focusing ? 1.4 : 1.9)) * .03;
-      catBody.scale.set(1 + br * .5, .52 + br, .78 + br * .5);
+      catBody.scale.set(1 + br * .3, 1 + br, 1 + br * .3);
       catHop = Math.max(0, catHop - dt * 1.4);
-      head.position.y = .2 + Math.sin(catHop * Math.PI) * .12; head.rotation.z = Math.sin(catHop * Math.PI) * .3;
+      head.position.y = HEADY + Math.sin(catHop * Math.PI) * .05; head.rotation.z = Math.sin(catHop * Math.PI) * .3;
       head.getWorldPosition(tmpV); var hx = tmpV.x, hy = tmpV.y, hz = tmpV.z;
       zzz.forEach(function (z) { z.userData.t = (z.userData.t + dt * .3) % 1; var uu = z.userData.t; z.position.set(hx + uu * .2, hy + .15 + uu * .38, hz - uu * .08); z.material.opacity = focusing && !catHop ? Math.sin(uu * Math.PI) * .95 : 0; z.scale.setScalar(.08 + uu * .1); });
       petT = Math.max(0, petT - dt * .45);
