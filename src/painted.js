@@ -50,6 +50,8 @@ export function createPainted(stage, opts) {
   // the sky for each time of day is graded into the painting itself (pixel by pixel, cool tones only), so there is no shape or edge over the windows
   var TODIMG = {};
   ['morning', 'day', 'night'].forEach(function (t) { var v = new Image(); v.className = 'art-img tod'; v.alt = ''; v.decoding = 'async'; art.appendChild(v); TODIMG[t] = v; });
+  var soft = document.createElement('div'); soft.className = 'art-soft'; art.appendChild(soft);                      // a touch of lens softness toward the edges, like a real camera
+  var grain = document.createElement('div'); grain.className = 'film-grain'; root.appendChild(grain);                  // fine film grain over the whole picture
   function layer(cls) { var d = document.createElement('div'); d.className = cls; art.appendChild(d); return d; }
   var rainCv = document.createElement('canvas'); rainCv.className = 'rain'; rainCv.width = 560; rainCv.height = 500; rainCv.style.cssText = 'left:630px;top:0;width:560px;height:500px'; rainCv.style.clipPath = 'polygon(0 0, 100% 0, 100% 99.4%, 0 99.4%)'; art.appendChild(rainCv);
   Object.keys(LIGHTS).forEach(function (k) {

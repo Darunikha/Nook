@@ -632,3 +632,13 @@ body.card-open .widgets { opacity: 0; transform: translateX(16px); pointer-event
   .widgets.tighter .w-btns { grid-column: 2; grid-row: 2; gap: 10px; }
   .widgets.tighter .w-play, .widgets.tighter .w-reset { width: 38px; height: 38px; }
 }
+
+/* a light photographic touch on the painting: fine film grain and gentle lens softness toward the edges */
+.art-soft { position: absolute; inset: 0; pointer-events: none; backdrop-filter: blur(1.7px); -webkit-backdrop-filter: blur(1.7px);
+  -webkit-mask-image: radial-gradient(ellipse 62% 66% at 50% 60%, transparent 55%, rgba(0,0,0,.55) 82%, #000 100%); mask-image: radial-gradient(ellipse 62% 66% at 50% 60%, transparent 55%, rgba(0,0,0,.55) 82%, #000 100%); }
+.film-grain { position: absolute; inset: -40px; pointer-events: none; mix-blend-mode: overlay; opacity: .26;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7' stitchTiles='stitch'/><feColorMatrix values='.33 .33 .33 0 0  .33 .33 .33 0 0  .33 .33 .33 0 0  0 0 0 0 1'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+  animation: grain-shift .9s steps(1) infinite; }
+@keyframes grain-shift { 0% { transform: translate(0, 0); } 20% { transform: translate(-31px, 17px); } 40% { transform: translate(22px, -29px); } 60% { transform: translate(-14px, -22px); } 80% { transform: translate(27px, 24px); } }
+.still .film-grain { animation: none; }
+@media (prefers-reduced-motion: reduce) { .film-grain { animation: none; } }

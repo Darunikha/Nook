@@ -193,12 +193,13 @@ import { createPainted } from './painted.js';
         var m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
         m.onBeforeCompile = function (sh) {
           sh.uniforms.uFur = { value: len * h }; sh.uniforms.uH = { value: h }; sh.uniforms.uDen = { value: density };
-          sh.vertexShader = 'uniform float uFur;\nvarying vec3 vObj;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvObj = position;\ntransformed += normalize(objectNormal) * uFur;');
+          sh.vertexShader = 'uniform float uFur;\nvarying vec3 vObj;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvObj = position;\ntransformed += normalize(objectNormal) * uFur; transformed.y -= uFur * uH * .45;');
           sh.fragmentShader = 'uniform float uH;\nuniform float uDen;\nvarying vec3 vObj;\n' + sh.fragmentShader.replace('#include <color_fragment>', [
             '#include <color_fragment>',
             'vec3 cellP = vObj * uDen; vec3 cid = floor(cellP); vec3 cf = fract(cellP) - .5;',
             'float rnd = fract(sin(dot(cid, vec3(12.9898, 78.233, 37.719))) * 43758.5453);',
-            'if (rnd < uH * .85 || length(cf) > (1. - uH) * .62) discard;',
+            'float clump = .75 + .5 * fract(sin(dot(floor(vObj * uDen * .12), vec3(7.13, 41.7, 19.3))) * 9371.1);',
+            'if (rnd < uH * .85 || length(cf) > (1. - uH) * .62 * clump) discard;',
             'diffuseColor.rgb *= mix(.78, 1.06, uH);'].join('\n'));
         };
         var shell = new THREE.Mesh(mesh.geometry, m); shell.castShadow = false; shell.receiveShadow = true; shell.userData.noMerge = true; shell.userData.noPick = true; mesh.add(shell);
@@ -1005,7 +1006,7 @@ import { createPainted } from './painted.js';
     }
     function bunny(x, y, z, sc, rotY) {
       var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY || 0; g.scale.setScalar(sc || 1); scene.add(g);
-      var cer = new THREE.MeshPhysicalMaterial({ color: '#F4EDE2', roughness: .28, clearcoat: .6, clearcoatRoughness: .25 });
+      var cer = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .95, sheen: 1, sheenRoughness: .6, sheenColor: new THREE.Color('#FFF4EC') });
       var bun = sculpt(function (x, y, z) {
         var d = sdEll(x, y, z, 0, .05, 0, .048, .052, .042);
         d = smin(d, sdEll(x, y, z, 0, .122, .01, .036, .033, .033), .03);
@@ -1013,10 +1014,15 @@ import { createPainted } from './painted.js';
         d = smin(d, sdEll(x, y, z, -.022, .028, .03, .016, .012, .02), .015); d = smin(d, sdEll(x, y, z, .022, .028, .03, .016, .012, .02), .015);
         d = smin(d, sdCap(x, y, z, [-.012, .145, .004], [-.024, .215, -.004], .011, .008), .016); d = smin(d, sdCap(x, y, z, [.012, .145, .004], [.024, .215, -.004], .011, .008), .016);
         return Math.max(d, -y);
-      }, 0, .11, 0, .125, 56, cer);
+      }, 0, .11, 0, .125, 64, cer, function (x, y, z, c) {
+        c.set('#F5EEE3'); c.offsetHSL(0, 0, Math.sin(x * 190 + y * 160 + z * 170) * .012);
+        var ear = sm2(.148, .17, y) * sm2(.0, .008, z); c.lerp(new THREE.Color('#E8B6B9'), ear * .85);                     // pink inside the ears
+        c.lerp(new THREE.Color('#F7D3D1'), sm2(.1, .13, y) * sm2(.02, .04, z) * .0);
+      });
+      furCoat(bun, .0038, 9, 1250);
       bun.castShadow = true; add(bun, g);
-      [-.013, .013].forEach(function (ex) { ball(.004, '#2A1E1C', ex, .135, .045, 1, 1, 1, g); });
-      ball(.006, '#E9A6AC', 0, .124, .047, 1, .8, .8, g);
+      [-.013, .013].forEach(function (ex) { var eye = new THREE.Mesh(new THREE.SphereGeometry(.0042, 16, 12), new THREE.MeshPhysicalMaterial({ color: '#1C1412', roughness: .1, clearcoat: 1 })); eye.position.set(ex, .135, .0455); add(eye, g, false); });   // glossy bead eyes
+      ball(.0055, '#E3A0A8', 0, .124, .0475, 1.1, .8, .8, g);
       bow(g, 0, .095, .03, .8, 0);
       return g;
     }
@@ -1149,7 +1155,7 @@ import { createPainted } from './painted.js';
       for (var k = 0; k < w; k += 2) { x.fillStyle = 'rgba(0,0,0,.07)'; x.fillRect(k, 0, 1, h); x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(0, k, w, 1); }
     });
     plaidTex.wrapS = plaidTex.wrapT = THREE.RepeatWrapping; plaidTex.repeat.set(2, 2);
-    var plaidM = (function () { var st = pbrSet('wool_boucle'), mp = st.map.clone(), nm = st.normalMap.clone(); [mp, nm].forEach(function (t) { t.repeat.set(1.6, 1.6); t.needsUpdate = true; }); return new THREE.MeshStandardMaterial({ color: new THREE.Color('#E9C7A6'), map: mp, normalMap: nm, roughness: .95 }); })();
+    var plaidM = (function () { var st = pbrSet('wool_boucle'), mp = st.map.clone(), nm = st.normalMap.clone(); [mp, nm].forEach(function (t) { t.repeat.set(1.6, 1.6); }); return new THREE.MeshStandardMaterial({ color: new THREE.Color('#E9C7A6'), map: mp, normalMap: nm, roughness: .95 }); })();
     var legWood = mat('#2A170D', { roughness: .4, env: .6 }), nailM = mat('#CDA85E', { metalness: .9, roughness: .3, env: 1.2 });
     function armchair(x, z, rotY, body) {             // a carved, buttoned armchair (CC0 model), upholstered in the room's brown velvet
       var g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
@@ -1298,15 +1304,16 @@ import { createPainted } from './painted.js';
       var white = sm2(.03, .09, z) * sm2(.11, .06, y) + sm2(.06, .03, y) * sm2(.07, .1, z) + sm2(.02, .06, x) * sm2(.13, .15, z) * sm2(.06, .04, y);
       var ph = Math.atan2(z, x), stripe = Math.pow(Math.max(0, Math.sin(ph * 17)), 3) * sm2(.09, .15, y) * sm2(.04, -.02, z);
       c.copy(cG).lerp(cS, stripe * .6).lerp(cW, Math.min(1, white));
-      c.offsetHSL(0, 0, Math.sin(x * 210 + y * 170 + z * 190) * .012);
+      c.offsetHSL(Math.sin(x * 37 + z * 29) * .006, Math.sin(x * 41 + y * 23) * .05, Math.sin(x * 210 + y * 170 + z * 190) * .02 + Math.sin(x * 19 + z * 23) * .025);   // patchy, natural variation
+      var tailRing = Math.pow(Math.max(0, Math.sin((x * 60 + z * 47) * 1.3)), 6) * sm2(.03, .0, y - .04) * sm2(-.1, -.14, x) * .35; c.lerp(cS, tailRing);
     }
-    var catBody = sculpt(catSdf, -.02, .1, .02, .27, 76, furM, catColor); add(catBody, cat); furCoat(catBody, .009, 10, 620);
+    var catBody = sculpt(catSdf, -.02, .1, .02, .27, 76, furM, catColor); add(catBody, cat); furCoat(catBody, .011, 13, 640);
     var HEADY = .118, head = new THREE.Group(); head.position.set(.085, HEADY, .088); head.rotation.set(.12, .1, -.12); cat.add(head);
     var headM = sculpt(catHeadSdf, 0, -.005, .02, .11, 60, furM, function (x, y, z, c) {
       var w = sm2(-.004, -.02, y) * sm2(.02, .045, z) + sm2(.014, .006, Math.abs(x)) * sm2(.045, .06, z) * sm2(.03, .01, y);
       c.copy(cG).lerp(cS, Math.pow(Math.max(0, Math.sin(x * 95)), 3) * sm2(.025, .055, y) * .55).lerp(cW, Math.min(1, w));
     });
-    add(headM, head); furCoat(headM, .006, 8, 700);
+    add(headM, head); furCoat(headM, .007, 10, 720);
     var earM = new THREE.MeshPhysicalMaterial({ color: '#CF8649', roughness: .9, sheen: 1, sheenRoughness: .5, sheenColor: new THREE.Color('#FFE0C0') }), earIn = mat('#E8B3A6', { roughness: .9 });
     [-1, 1].forEach(function (sd) {
       var ear = new THREE.Mesh(new THREE.ConeGeometry(.03, .056, 24), earM); ear.position.set(sd * .045, .058, -.008); ear.rotation.set(-.15, 0, -sd * .38); ear.scale.z = .55; add(ear, head);
@@ -1315,6 +1322,23 @@ import { createPainted } from './painted.js';
     var lidM = mat('#4A2F22', { roughness: .7 });
     [-1, 1].forEach(function (sd) { var ex = sd * .03, ey = .002, lid = new THREE.Mesh(new THREE.TorusGeometry(.011, .0021, 6, 18, Math.PI), lidM); lid.position.set(ex, ey, surfaceZ(catHeadSdf, ex, ey) + .001); lid.rotation.set(0, sd * .35, Math.PI); add(lid, head, false); });
     ball(.0065, '#C97F78', 0, -.017, surfaceZ(catHeadSdf, 0, -.017) - .002, 1.2, .8, 1, head);   // nose
+    (function () {
+      var V = THREE.Vector3, wm = new THREE.MeshStandardMaterial({ color: '#F4EEE4', roughness: .5 }), mz = surfaceZ(catHeadSdf, 0, -.03);
+      [-1, 1].forEach(function (sd) {                                                      // whiskers: long, fine and gently curved, fanning out from the muzzle
+        for (var k = 0; k < 5; k++) {
+          var ang = (k - 2) * .2, len = .085 - Math.abs(k - 2) * .008, x0 = sd * .018, y0 = -.02 - k * .002, z0 = mz - .014;
+          var c = new THREE.CatmullRomCurve3([new V(x0, y0, z0), new V(x0 + sd * len * .45, y0 + ang * .03 + .004, z0 - .006), new V(x0 + sd * len, y0 + ang * .075 - .012, z0 - .018)]);
+          var w = new THREE.Mesh(new THREE.TubeGeometry(c, 10, .00055, 4, false), wm); w.castShadow = false; head.add(w);
+        }
+        var bc = new THREE.CatmullRomCurve3([new V(sd * .03, .022, surfaceZ(catHeadSdf, sd * .03, .022) - .004), new V(sd * .045, .036, surfaceZ(catHeadSdf, sd * .03, .022) - .012), new V(sd * .06, .04, surfaceZ(catHeadSdf, sd * .03, .022) - .02)]);   // brow whiskers
+        var bw = new THREE.Mesh(new THREE.TubeGeometry(bc, 8, .00045, 4, false), wm); bw.castShadow = false; head.add(bw);
+      });
+      var mouth = new THREE.CatmullRomCurve3([new V(0, -.022, mz - .002), new V(0, -.03, mz - .004)]);                                  // a fine mouth line under the nose
+      var mm = new THREE.MeshBasicMaterial({ color: '#7A4A44' }); var ml = new THREE.Mesh(new THREE.TubeGeometry(mouth, 4, .0006, 4, false), mm); head.add(ml);
+      [-1, 1].forEach(function (sd) { var mc = new THREE.CatmullRomCurve3([new V(0, -.03, mz - .004), new V(sd * .008, -.036, mz - .007), new V(sd * .016, -.034, mz - .011)]); head.add(new THREE.Mesh(new THREE.TubeGeometry(mc, 6, .0006, 4, false), mm)); });
+      var tg = new THREE.MeshStandardMaterial({ color: '#F2E8DA', roughness: 1 });
+      [-1, 1].forEach(function (sd) { for (var t = 0; t < 3; t++) { var tf = new THREE.Mesh(new THREE.ConeGeometry(.003, .018, 6), tg); tf.position.set(sd * (.043 + t * .002), .052 + t * .003, -.002); tf.rotation.set(-.1, 0, -sd * (.3 + t * .08)); tf.castShadow = false; head.add(tf); } });   // ear tufts
+    })();
     tag = null;
     var zzz = spriteSet(3, function (x) { x.fillStyle = '#FFF6E2'; x.font = 'italic 400 50px "Young Serif", Georgia, serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('z', 32, 34); }, .15);
     var hearts = spriteSet(5, function (x) { x.fillStyle = '#F07A93'; x.font = '50px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('♥', 32, 36); }, .15);
