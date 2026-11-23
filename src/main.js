@@ -670,7 +670,9 @@ import { createPainted } from './painted.js';
         '  return acc;',
         '}',
         'void main(){',
-        '  vec2 uv = vUv; vec2 P = uv * vec2(uAsp, 1.);',
+        '  vec2 uv = vUv; float swayAmp = smoothstep(.1, .5, uv.y) * (1. - smoothstep(.62, .9, uv.y));',
+        '  uv.x += (sin(uTime * .9 + uv.y * 9. + uv.x * 13.) * .0021 + sin(uTime * .47 + uv.y * 5.) * .0014) * swayAmp;',
+        '  vec2 P = uv * vec2(uAsp, 1.);',
         '  float rain = uRain; vec3 col;',
         '  if (rain < .001) { col = texture2D(map, uv).rgb; }',
         '  else {',
@@ -1004,8 +1006,9 @@ import { createPainted } from './painted.js';
       candles.push({ fl: fl, glow: gl, light: L, ph: candles.length * 1.7, wax: wax, pool: pool.material, core: core });
       return g;
     }
+    var bunnyG = null, bunnyS = 1;
     function bunny(x, y, z, sc, rotY) {
-      var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY || 0; g.scale.setScalar(sc || 1); scene.add(g);
+      var g = new THREE.Group(); bunnyG = g; bunnyS = sc || 1; g.position.set(x, y, z); g.rotation.y = rotY || 0; g.scale.setScalar(sc || 1); scene.add(g);
       var cer = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .95, sheen: 1, sheenRoughness: .6, sheenColor: new THREE.Color('#FFF4EC') });
       var bun = sculpt(function (x, y, z) {
         var d = sdEll(x, y, z, 0, .05, 0, .048, .052, .042);
@@ -1314,9 +1317,10 @@ import { createPainted } from './painted.js';
       c.copy(cG).lerp(cS, Math.pow(Math.max(0, Math.sin(x * 95)), 3) * sm2(.025, .055, y) * .55).lerp(cW, Math.min(1, w));
     });
     add(headM, head); furCoat(headM, .007, 10, 720);
+    var catEars = [];
     var earM = new THREE.MeshPhysicalMaterial({ color: '#CF8649', roughness: .9, sheen: 1, sheenRoughness: .5, sheenColor: new THREE.Color('#FFE0C0') }), earIn = mat('#E8B3A6', { roughness: .9 });
     [-1, 1].forEach(function (sd) {
-      var ear = new THREE.Mesh(new THREE.ConeGeometry(.03, .056, 24), earM); ear.position.set(sd * .045, .058, -.008); ear.rotation.set(-.15, 0, -sd * .38); ear.scale.z = .55; add(ear, head);
+      var ear = new THREE.Mesh(new THREE.ConeGeometry(.03, .056, 24), earM); ear.position.set(sd * .045, .058, -.008); ear.rotation.set(-.15, 0, -sd * .38); ear.scale.z = .55; add(ear, head); catEars.push({ ear: ear, sd: sd, z0: -sd * .38, ph: sd * 1.7 });
       var inner = new THREE.Mesh(new THREE.ConeGeometry(.02, .04, 20), earIn); inner.position.set(sd * .043, .054, .0); inner.rotation.copy(ear.rotation); inner.scale.z = .3; add(inner, head, false);
     });
     var lidM = mat('#4A2F22', { roughness: .7 });
@@ -1343,7 +1347,10 @@ import { createPainted } from './painted.js';
     var zzz = spriteSet(3, function (x) { x.fillStyle = '#FFF6E2'; x.font = 'italic 400 50px "Young Serif", Georgia, serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('z', 32, 34); }, .15);
     var hearts = spriteSet(5, function (x) { x.fillStyle = '#F07A93'; x.font = '50px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('♥', 32, 36); }, .15);
 
-    /* ---------- brass pendants with opal glass globes ---------- */
+    var birdTex = canvasTex(64, 32, function (x) { x.fillStyle = 'rgba(40,30,60,.85)'; x.beginPath(); x.moveTo(2, 18); x.quadraticCurveTo(16, 2, 32, 18); x.quadraticCurveTo(48, 2, 62, 18); x.quadraticCurveTo(48, 12, 32, 26); x.quadraticCurveTo(16, 12, 2, 18); x.fill(); });
+    var bird = new THREE.Sprite(new THREE.SpriteMaterial({ map: birdTex, transparent: true, depthWrite: false, fog: false, opacity: 0 })); bird.scale.set(.34, .17, 1); bird.userData.noPick = true; scene.add(bird);
+    var birdT = -1, birdNext = 4, birdDir = 1, birdY = 3.4;
+        /* ---------- brass pendants with opal glass globes ---------- */
     var chands = [], cloudM = new THREE.MeshStandardMaterial({ color: '#F6EAD3', emissive: '#FFD9A0', emissiveIntensity: 1, roughness: .35 });
     [-4.6, -1.2].forEach(function (z) {
       var y = 4.35, g = new THREE.Group(); g.position.set(0, y, z); scene.add(g);
@@ -1702,6 +1709,12 @@ import { createPainted } from './painted.js';
       if (rainLevel) rainDrops.forEach(function (d) { d.position.y -= d.userData.v * dt; if (d.position.y < WB) d.position.y = WB + WS + .6; });
       if (playing && !reduce) platter.rotation.y -= dt * 3.5;
       notes.forEach(function (n, i) { n.userData.t = (n.userData.t + dt * .28) % 1; var uu = n.userData.t; n.position.set(RX + .15 + Math.sin(uu * 5 + i * 2) * .18, 1.6 + uu * .8, RZ - .3); n.material.opacity = playing ? Math.sin(uu * Math.PI) * .9 : 0; });
+      if (!reduce) {
+        catEars.forEach(function (e) { var tw = Math.max(0, Math.sin(t * .83 + e.ph)) > .985 ? Math.sin(t * 44) * .22 : 0; e.ear.rotation.z = e.z0 + tw; });
+        if (birdT < 0 && t > birdNext) { birdT = 0; birdDir = Math.random() < .5 ? 1 : -1; birdY = 2.9 + Math.random() * 1.0; }
+        if (birdT >= 0) { birdT += dt / 9; var bu = Math.min(1, birdT), bx = (bu * 2 - 1) * 3.0 * birdDir; bird.position.set(bx, birdY + Math.sin(bu * 6.28) * .12, Z0 + .6); bird.scale.set(.34 * (1 - bu * .3) * birdDir, .17 * (.55 + .45 * Math.abs(Math.sin(t * 13))) * (1 - bu * .3), 1); bird.material.opacity = Math.sin(bu * Math.PI) * .8; if (bu >= 1) { birdT = -1; birdNext = t + 14 + Math.random() * 20; bird.material.opacity = 0; } }
+        if (bunnyG) { var bb = Math.sin(t * 1.7 + 1) * .012; bunnyG.scale.set(bunnyS * (1 - bb * .4), bunnyS * (1 + bb), bunnyS * (1 - bb * .4)); }
+      }
       var br = reduce ? 0 : Math.sin(t * (focusing ? 1.4 : 1.9)) * .03;
       catBody.scale.set(1 + br * .3, 1 + br, 1 + br * .3);
       catHop = Math.max(0, catHop - dt * 1.4);

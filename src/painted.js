@@ -50,6 +50,8 @@ export function createPainted(stage, opts) {
   // the sky for each time of day is graded into the painting itself (pixel by pixel, cool tones only), so there is no shape or edge over the windows
   var TODIMG = {};
   ['morning', 'day', 'night'].forEach(function (t) { var v = new Image(); v.className = 'art-img tod'; v.alt = ''; v.decoding = 'async'; art.appendChild(v); TODIMG[t] = v; });
+  var breath = document.createElement('div'); breath.className = 'cat-breath'; art.appendChild(breath);                     // Mochi's slow breathing
+  var birds = document.createElement('div'); birds.className = 'window-birds'; birds.style.clipPath = WINDOW; art.appendChild(birds);   // a bird now and then outside the glass
   var soft = document.createElement('div'); soft.className = 'art-soft'; art.appendChild(soft);                      // a touch of lens softness toward the edges, like a real camera
   var grain = document.createElement('div'); grain.className = 'film-grain'; root.appendChild(grain);                  // fine film grain over the whole picture
   function layer(cls) { var d = document.createElement('div'); d.className = cls; art.appendChild(d); return d; }
@@ -125,6 +127,7 @@ export function createPainted(stage, opts) {
   /* ---------- time of day: crossfade between versions of the painting ---------- */
   function setTod(t) {
     root.dataset.tod = t;
+    breath.style.backgroundImage = 'url(' + (opts.base || '/') + 'scene/library-dusk' + (t === 'golden' ? '' : '-' + t) + '.webp)';
     Object.keys(TODIMG).forEach(function (k) { var v = TODIMG[k]; if (k === t && !v.src) v.src = (opts.base || '/') + 'scene/library-dusk-' + k + '.webp'; v.classList.toggle('on', k === t); });
   }
 
@@ -170,6 +173,16 @@ export function createPainted(stage, opts) {
       }
     }
   }
+  function flyBird() {
+    if (reduce || root.classList.contains('still') || document.hidden) return;
+    var b = document.createElement('i'); b.className = 'bird'; b.innerHTML = '<svg viewBox="0 0 30 12" width="38" height="15"><path d="M0 6 Q7 -1 15 6 Q23 -1 30 6 Q23 3 15 9 Q7 3 0 6Z" fill="rgba(36,26,56,.92)"/></svg>';
+    var y0 = 120 + Math.random() * 180, dir = Math.random() < .5 ? 1 : -1, x0 = dir > 0 ? 610 : 1200, x1 = dir > 0 ? 1200 : 610, dur = 9000 + Math.random() * 4000;
+    b.style.left = '0'; b.style.top = '0'; birds.appendChild(b);
+    var an = b.animate([{ transform: 'translate(' + x0 + 'px,' + y0 + 'px) scale(' + (.7 * dir) + ',.7)' }, { transform: 'translate(' + ((x0 + x1) / 2) + 'px,' + (y0 - 40) + 'px) scale(' + (1 * dir) + ',1)' }, { transform: 'translate(' + x1 + 'px,' + (y0 + 10) + 'px) scale(' + (.5 * dir) + ',.5)' }], { duration: dur, easing: 'ease-in-out' });
+    an.onfinish = function () { b.remove(); };
+  }
+  (function schedule() { setTimeout(function () { flyBird(); schedule(); }, 14000 + Math.random() * 22000); })();
+  setTimeout(flyBird, 4500);
   requestAnimationFrame(tick);
   if (reduce) root.classList.add('still');
   return api;

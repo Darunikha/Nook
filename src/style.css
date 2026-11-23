@@ -642,3 +642,18 @@ body.card-open .widgets { opacity: 0; transform: translateX(16px); pointer-event
 @keyframes grain-shift { 0% { transform: translate(0, 0); } 20% { transform: translate(-31px, 17px); } 40% { transform: translate(22px, -29px); } 60% { transform: translate(-14px, -22px); } 80% { transform: translate(27px, 24px); } }
 .still .film-grain { animation: none; }
 @media (prefers-reduced-motion: reduce) { .film-grain { animation: none; } }
+
+/* a living scene: a slow camera drift, Mochi's breathing and the odd bird outside the window */
+.painted:not(.still) .art { animation: camDrift 28s ease-in-out infinite alternate; }
+@keyframes camDrift { from { scale: 1; } to { scale: 1.016; } }
+.cat-breath { position: absolute; left: 1050px; top: 640px; width: 330px; height: 150px; pointer-events: none; background-size: 1672px 941px; background-position: -1050px -640px;
+  -webkit-mask-image: radial-gradient(ellipse 50% 52% at 50% 56%, #000 58%, transparent 100%); mask-image: radial-gradient(ellipse 50% 52% at 50% 56%, #000 58%, transparent 100%);
+  transform-origin: 50% 90%; animation: catBreath 4.6s ease-in-out infinite; }
+@keyframes catBreath { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.004, 1.018); } }
+.still .cat-breath { animation: none; }
+.window-birds { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.window-birds .bird { position: absolute; display: block; line-height: 0; }
+.window-birds .bird svg { animation: flap .28s ease-in-out infinite alternate; transform-origin: 50% 60%; }
+@keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(.45); } }
+@media (prefers-reduced-motion: reduce) { .painted .art, .cat-breath, .window-birds .bird svg { animation: none; } }
+.window-birds .bird { filter: drop-shadow(0 0 2px rgba(255,214,230,.55)); }
